@@ -615,26 +615,20 @@ function setMode(mode) {
     }
     // 预览区域视觉反馈（仅预览容器外层，不改导出逻辑）
     applyPreviewModeFrame();
+    // 切换模式后重新渲染预览以应用分页或高度变化
+    updatePreview();
 }
 
 function applyPreviewModeFrame() {
     // 预览时根据模式设置固定可视高度（以外层 markdownPoster 的 box 包含 padding 与内容）
     markdownPoster.dataset.mode = currentMode;
     if (currentMode === 'xhs') {
-        // 3:4（宽:高） => 高度 = 宽度 / 3 * 4。由于 width 是含 padding 的可视宽度，这里与导出一致
-        const rect = markdownPoster.getBoundingClientRect();
-        const targetHeight = Math.round((rect.width / 3) * 4);
-        markdownPoster.style.height = `${targetHeight}px`;
-        markdownPoster.style.minHeight = `${targetHeight}px`;
-        markdownPoster.style.overflow = 'hidden'; // 超出裁掉
-
-        // 计算可用给白卡片（posterContent）的最大高度，保留上下紫色 padding
-        const mpComputed = getComputedStyle(markdownPoster);
-        const paddingTop = parseFloat(mpComputed.paddingTop) || 0;
-        const paddingBottom = parseFloat(mpComputed.paddingBottom) || 0;
-        const innerMax = Math.max(0, targetHeight - paddingTop - paddingBottom);
-        posterContent.style.maxHeight = `${innerMax}px`;
-        posterContent.style.overflow = 'hidden';
+        // 小红书模式：宽度固定，允许高度自适应；分页逻辑单独处理，不在此裁剪
+        markdownPoster.style.height = '';
+        markdownPoster.style.minHeight = '';
+        markdownPoster.style.overflow = 'visible';
+        posterContent.style.maxHeight = '';
+        posterContent.style.overflow = 'visible';
     } else if (currentMode === 'pyq') {
         // 朋友圈固定比例：1290x2796 ≈ 宽:高 = 1290:2796。
         // 在保持当前外层宽度不变的前提下，按该比例计算高度。
@@ -653,9 +647,9 @@ function applyPreviewModeFrame() {
     } else {
         markdownPoster.style.height = '';
         markdownPoster.style.minHeight = '600px';
-        markdownPoster.style.overflow = 'hidden';
+        markdownPoster.style.overflow = 'visible';
         posterContent.style.maxHeight = '';
-        posterContent.style.overflow = '';
+        posterContent.style.overflow = 'visible';
     }
 }
 
@@ -806,6 +800,13 @@ async function updatePreview() {
     
     // 渲染卡片
     await cardRenderer.renderCards(posterContent);
+
+    // 小红书模式分页（宽度固定，高度自适应，不截断块）
+    if (currentMode === 'xhs') {
+        paginateContentForXhs();
+    } else {
+        clearXhsPaginationArtifacts();
+    }
     
     // 确保内容容器可见
     posterContent.style.display = 'block';
@@ -820,6 +821,129 @@ async function updatePreview() {
     } else {
         posterContent.style.animation = '';
     }
+}
+
+// ===== 小红书分页逻辑（宽度固定，高度自适应，不截断块） =====
+function getXhsTargetHeight() {
+    try {
+        const rect = markdownPoster.getBoundingClientRect();
+        const width = rect && rect.width ? rect.width : (currentWidth || 640);
+        return Math.round((width / 3) * 4);
+    } catch (_) {
+        return Math.round(((currentWidth || 640) / 3) * 4);
+    }
+}
+
+function createXhsPage() {
+    const page = document.createElement('div');
+    page.className = 'xhs-page';
+    return page;
+}
+
+function createPageSplitLine() {
+    const line = document.createElement('div');
+    line.className = 'page-split-line';
+    return line;
+}
+
+function addPageIndicator(page, index, total) {
+    if (!page) return;
+    const indicator = document.createElement('div');
+    indicator.className = 'page-number-indicator';
+    indicator.textContent = `第 ${index}/${total} 页`;
+    page.appendChild(indicator);
+}
+
+function clearXhsPaginationArtifacts() {
+    if (!posterContent) return;
+    const pages = posterContent.querySelectorAll('.xhs-page');
+    if (!pages.length) return;
+
+    const fragment = document.createDocumentFragment();
+    pages.forEach(page => {
+        // 移除页码
+        const indicator = page.querySelector('.page-number-indicator');
+        if (indicator) indicator.remove();
+        // 把内容搬回主容器
+        while (page.firstChild) {
+            fragment.appendChild(page.firstChild);
+        }
+    });
+
+    // 移除分隔线
+    posterContent.querySelectorAll('.page-split-line').forEach(line => line.remove());
+
+    // 重置容器
+    posterContent.innerHTML = '';
+    posterContent.appendChild(fragment);
+}
+
+function paginateContentForXhs() {
+    if (!posterContent) return;
+
+    // 收集当前渲染后的块级元素
+    const blocks = Array.from(posterContent.children).filter(node => node.nodeType === 1);
+    if (!blocks.length) return;
+
+    const targetHeight = getXhsTargetHeight();
+    const maxFlexibleHeight = Math.round(targetHeight * 1.3);
+
+    // 用临时容器测量高度，避免影响最终 DOM
+    const tempWrapper = document.createElement('div');
+    tempWrapper.style.position = 'absolute';
+    tempWrapper.style.visibility = 'hidden';
+    tempWrapper.style.pointerEvents = 'none';
+    tempWrapper.style.width = '100%';
+
+    // 清空主容器并放入临时测量容器
+    posterContent.innerHTML = '';
+    posterContent.appendChild(tempWrapper);
+
+    const pages = [];
+    let currentPage = createXhsPage();
+
+    for (const block of blocks) {
+        currentPage.appendChild(block);
+        tempWrapper.appendChild(currentPage);
+
+        const pageHeight = currentPage.scrollHeight;
+        const withinFlexible = pageHeight <= maxFlexibleHeight;
+
+        if (!withinFlexible) {
+            const singleBlock = currentPage.childElementCount === 1;
+
+            if (!singleBlock) {
+                // 回退该块，结束当前页，开启新页
+                currentPage.removeChild(block);
+                pages.push(currentPage);
+
+                currentPage = createXhsPage();
+                currentPage.appendChild(block);
+                tempWrapper.appendChild(currentPage);
+            } else {
+                // 单块过高，允许该页超高
+                pages.push(currentPage);
+                currentPage = createXhsPage();
+            }
+        }
+    }
+
+    if (currentPage && currentPage.childElementCount) {
+        pages.push(currentPage);
+    }
+
+    // 把页内容写回预览容器并添加分隔/页码
+    posterContent.innerHTML = '';
+    pages.forEach((page, idx) => {
+        addPageIndicator(page, idx + 1, pages.length);
+        posterContent.appendChild(page);
+        if (idx < pages.length - 1) {
+            posterContent.appendChild(createPageSplitLine());
+        }
+    });
+
+    // 移除临时测量容器
+    tempWrapper.remove();
 }
 
 // ===== 行号逻辑 =====
@@ -1116,25 +1240,7 @@ async function createExactExportNode() {
         inner.style.backdropFilter = pcComputed.backdropFilter || 'none';
         inner.style.webkitBackdropFilter = pcComputed.webkitBackdropFilter || 'none';
     }
-    // 固定高度模式：小红书 3:4。导出时必须与预览一致，且裁掉超出部分
-    if (currentMode === 'xhs') {
-        const rect = markdownPoster.getBoundingClientRect();
-        const target = Math.round((rect.width / 3) * 4);
-        clone.style.height = `${target}px`;
-        clone.style.minHeight = `${target}px`;
-        clone.style.overflow = 'hidden';
-
-        // 同步内部白卡片最大高度，保留上下紫色 padding 作为边距
-        const mpComputed = getComputedStyle(markdownPoster);
-        const paddingTop = parseFloat(mpComputed.paddingTop) || 0;
-        const paddingBottom = parseFloat(mpComputed.paddingBottom) || 0;
-        const innerMax = Math.max(0, target - paddingTop - paddingBottom);
-        const inner = clone.querySelector('.poster-content');
-        if (inner) {
-            inner.style.maxHeight = `${innerMax}px`;
-            inner.style.overflow = 'hidden';
-        }
-    } else if (currentMode === 'pyq') {
+    if (currentMode === 'pyq') {
         const rect = markdownPoster.getBoundingClientRect();
         const target = Math.round(rect.width * (2796 / 1290));
         clone.style.height = `${target}px`;
@@ -1291,6 +1397,11 @@ function tryProxyImage(img) {
  * 流程：等待字体 → 克隆节点 → 读取尺寸 → html2canvas 渲染 → 透明边缘裁剪 → 触发下载 → 清理。
  */
 async function exportToPNG() {
+    if (currentMode === 'xhs') {
+        await exportXhsPaginatedPNGs();
+        return;
+    }
+
     let exportNode = null;
     try {
         showNotification('正在生成图片...', 'info');
@@ -1302,6 +1413,12 @@ async function exportToPNG() {
         } catch (_) {
             // 忽略单个图片处理失败
         }
+
+        // 等待字体与一帧渲染
+        if (document.fonts && document.fonts.ready) {
+            try { await document.fonts.ready; } catch (_) {}
+        }
+        await new Promise(r => requestAnimationFrame(r));
 
         // 等待字体与一帧渲染
         if (document.fonts && document.fonts.ready) {
@@ -1337,6 +1454,67 @@ async function exportToPNG() {
         showNotification('图片导出成功！', 'success');
     } catch (error) {
         console.error('导出失败:', error);
+        showNotification('导出失败，请重试', 'error');
+    } finally {
+        if (exportNode && exportNode.parentNode) {
+            exportNode.parentNode.removeChild(exportNode);
+        }
+    }
+}
+
+// 小红书模式分页导出多张 PNG，并可选打包 ZIP
+async function exportXhsPaginatedPNGs() {
+    let exportNode = null;
+    try {
+        showNotification('正在生成分页图片...', 'info');
+        exportNode = await createExactExportNode();
+
+        // 预处理导出节点中的图片
+        try {
+            await prepareImagesForExport(exportNode);
+        } catch (_) {
+            // 忽略单个图片处理失败
+        }
+
+        // 去除预览页码，仅保留分隔视觉（导出时每页单独渲染，分隔线会被隐藏）
+        exportNode.querySelectorAll('.page-number-indicator').forEach(el => el.remove());
+
+        const pages = Array.from(exportNode.querySelectorAll('.xhs-page'));
+        const splitLines = Array.from(exportNode.querySelectorAll('.page-split-line'));
+
+        // 若未分页，回退为单页导出
+        if (!pages.length) {
+            const rect = exportNode.getBoundingClientRect();
+            const tryScales = getExportScaleCandidates(EXPORT_SCALE);
+            const canvas = await renderWithFallbackScales(exportNode, Math.ceil(rect.width), Math.ceil(rect.height), tryScales);
+            triggerSingleDownload(canvas.toDataURL('image/png', 1.0), `madopic-xhs-${getFormattedTimestamp()}.png`);
+            showNotification('图片导出成功！', 'success');
+            return;
+        }
+
+        const images = [];
+        const tryScales = getExportScaleCandidates(EXPORT_SCALE);
+
+        for (let i = 0; i < pages.length; i++) {
+            // 仅显示当前页，其余隐藏
+            pages.forEach((p, idx) => {
+                p.style.display = idx === i ? '' : 'none';
+            });
+            // 隐藏分隔线
+            splitLines.forEach(line => line.style.display = 'none');
+
+            // 等待一帧确保布局稳定
+            await new Promise(resolve => requestAnimationFrame(resolve));
+
+            const rect = exportNode.getBoundingClientRect();
+            const canvas = await renderWithFallbackScales(exportNode, Math.ceil(rect.width), Math.ceil(rect.height), tryScales);
+            images.push(canvas.toDataURL('image/png', 1.0));
+        }
+
+        await downloadImagesWithOptionalZip(images);
+        showNotification('图片导出成功！', 'success');
+    } catch (error) {
+        console.error('分页导出失败:', error);
         showNotification('导出失败，请重试', 'error');
     } finally {
         if (exportNode && exportNode.parentNode) {
@@ -2341,6 +2519,62 @@ function getFormattedTimestamp() {
     const seconds = String(now.getSeconds()).padStart(2, '0');
     
     return `${year}${month}${day}${hours}${minutes}${seconds}`;
+}
+
+function padNumber(num, size = 2) {
+    let str = String(num);
+    while (str.length < size) str = '0' + str;
+    return str;
+}
+
+function triggerSingleDownload(dataUrl, filename) {
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function triggerBlobDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+async function downloadImagesWithOptionalZip(imageDataUrls) {
+    if (!imageDataUrls || !imageDataUrls.length) return;
+
+    const timestamp = getFormattedTimestamp();
+
+    // 若未加载 JSZip 或仅一张，逐张下载
+    if (typeof JSZip === 'undefined' || imageDataUrls.length === 1) {
+        imageDataUrls.forEach((url, idx) => {
+            triggerSingleDownload(url, `madopic-xhs-${padNumber(idx + 1, 2)}-${timestamp}.png`);
+        });
+        return;
+    }
+
+    try {
+        const zip = new JSZip();
+        imageDataUrls.forEach((url, idx) => {
+            const base64 = url.split(',')[1] || '';
+            zip.file(`madopic-xhs-${padNumber(idx + 1, 2)}.png`, base64, { base64: true });
+        });
+
+        const blob = await zip.generateAsync({ type: 'blob' });
+        triggerBlobDownload(blob, `madopic-xhs-${timestamp}.zip`);
+    } catch (err) {
+        // 兜底：若打包失败，改为逐张下载
+        imageDataUrls.forEach((url, idx) => {
+            triggerSingleDownload(url, `madopic-xhs-${padNumber(idx + 1, 2)}-${timestamp}.png`);
+        });
+    }
 }
 
 // 获取当前配置（便于调试与外部接入）

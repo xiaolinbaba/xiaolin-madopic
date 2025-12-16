@@ -342,7 +342,7 @@ body {
     backdrop-filter: blur(10px);
     position: relative;
     z-index: 1;
-    overflow: hidden;
+    overflow: visible;
     word-wrap: break-word;
     min-height: 400px;
     display: flex;
@@ -600,6 +600,39 @@ body {
     color: inherit;
     padding: 0;
     display: inline;
+}
+
+/* 小红书分页预览样式（仅预览展示，导出前会移除标记） */
+.poster-content .xhs-page {
+    position: relative;
+    width: 100%;
+}
+
+.poster-content .xhs-page + .xhs-page {
+    margin-top: 16px;
+}
+
+.page-split-line {
+    border-top: 1px dashed #e2e8f0;
+    margin: 20px 0 24px 0;
+    position: relative;
+    width: 100%;
+    height: 1px;
+}
+
+.page-number-indicator {
+    position: absolute;
+    top: -10px;
+    right: 12px;
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 12px;
+    padding: 2px 10px;
+    font-size: 12px;
+    line-height: 1.4;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.08);
+    pointer-events: none;
 }
 
 /* 背景自定义面板 */
