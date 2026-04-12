@@ -911,6 +911,7 @@ function setupExportButtons() {
     const exportPngBtn = document.getElementById('exportPngBtn');
     const exportPdfBtn = document.getElementById('exportPdfBtn');
     const exportHtmlBtn = document.getElementById('exportHtmlBtn');
+    const exportMarkdownDraftBtn = document.getElementById("exportMarkdownDraftBtn");
 
     if (exportPngBtn) {
         exportPngBtn.addEventListener('click', exportToPNG);
@@ -922,6 +923,10 @@ function setupExportButtons() {
 
     if (exportHtmlBtn) {
         exportHtmlBtn.addEventListener('click', exportToHTML);
+    }
+
+    if (exportMarkdownDraftBtn) {
+        exportMarkdownDraftBtn.addEventListener('click', exportToMarkdownDraft);
     }
 }
 
@@ -1891,6 +1896,80 @@ async function exportToHTML() {
         if (exportNode && exportNode.parentNode) {
             exportNode.parentNode.removeChild(exportNode);
         }
+    }
+}
+
+async function exportToMarkdownDraft() {
+    const draftContent = markdownInput.value;
+
+    if (!draftContent || !draftContent.trim()) {
+        showNotification('编辑器内容为空，无法导出', 'warning');
+        return;
+    }
+
+    let fileName;
+    let matchedTitle = null;
+
+    const patterns = [
+        // 一级标题：# 标题
+        {level: 1, regex: /^#\s+(.+)$/gm},
+        // 二级标题：## 标题
+        {level: 2, regex: /^##\s+(.+)$/gm},
+        // 三级标题：### 标题
+        {level: 3, regex: /^###\s+(.+)$/gm},
+        // 四级标题：#### 标题
+        {level: 4, regex: /^####\s+(.+)$/gm}
+    ];
+
+    // 依次匹配标题
+    for (const pattern of patterns) {
+        const match = pattern.regex.exec(draftContent);
+        if (match) {
+            // 直接取捕获组
+            matchedTitle = match[1].trim();
+            break;
+        }
+    }
+
+    // 没有找到，用时间戳
+    if (!matchedTitle) {
+        matchedTitle = `madopic-draft-${getFormattedTimestamp()}`;
+    }
+
+    fileName = matchedTitle
+        // 去除首尾空格
+        .trim()
+        // 移除控制字符
+        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+        // 移除零宽字符和格式控制符
+        .replace(/[\u200B-\u200F\u202A-\u202E\uFEFF]/g, '')
+        // 移除Windows文件名非法字符
+        .replace(/[\\/:*?"<>|]/g, '')
+        // 多个空格合并为一个
+        .replace(/\s+/g, ' ')
+        // 移除开头的点号和空格
+        .replace(/^[.\s]+/, '')
+        // 移除结尾的点号和空格
+        .replace(/[.\s]+$/, '');
+
+    // 使用时间戳作为后备
+    if (!fileName.length) {
+        fileName = `madopic-draft-${getFormattedTimestamp()}`
+    }
+
+    try {
+        const blob = new Blob([draftContent], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.download = fileName + '.md';
+        a.href = url;
+        a.click();
+
+        URL.revokeObjectURL(url);
+        showNotification('Markdown草稿 导出成功！', 'success');
+    } catch (error) {
+        console.error('Markdown草稿 导出失败:', error);
+        showNotification('Markdown草稿 导出失败，请重试', 'error');
     }
 }
 
