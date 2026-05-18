@@ -10,15 +10,20 @@
     --text-secondary: #525252;
     --text-tertiary: #878787;
     --text-placeholder: #B4B4B4;
+    --text-light: var(--text-secondary);
+    --text-muted: var(--text-tertiary);
 
     /* 背景颜色 - 纯色 */
     --background-primary: #FFFFFF;
     --background-secondary: #FAFAFA;
     --background-tertiary: #F5F5F5;
+    --background-light: var(--background-secondary);
+    --background-gray: var(--background-tertiary);
 
     /* 边框颜色 */
     --border-primary: #E6E6E6;
     --border-secondary: #F0F0F0;
+    --border-color: var(--border-primary);
 
     /* 阴影 - 极简轻微阴影 */
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
@@ -28,6 +33,7 @@
     --radius-sm: 4px;
     --radius-md: 6px;
     --radius-lg: 8px;
+    --border-radius: var(--radius-md);
 
     /* 字体 */
     --font-mono: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
@@ -337,8 +343,8 @@ body {
 /* Markdown 海报样式 - 纯色扁平化 */
 .markdown-poster {
     background: var(--background-primary);
-    border-radius: var(--radius-lg);
-    padding: 0;
+    border-radius: 0;
+    padding: 32px;
     margin: 0;
     box-shadow: var(--shadow-md);
     width: 640px;
@@ -358,8 +364,8 @@ body {
 
 .poster-content {
     background: var(--background-primary) !important;
-    border-radius: 0;
-    padding: 48px;
+    border-radius: var(--radius-lg);
+    padding: 24px;
     position: relative;
     z-index: 1;
     overflow: hidden;
@@ -573,12 +579,12 @@ body {
 }
 
 .poster-content blockquote {
-    border-left: 4px solid var(--primary-color);
+    border-left: 4px solid #D1D5DB;
     padding-left: 16px;
     background: var(--background-gray);
-    padding-top: 12px;
-    padding-bottom: 12px;
-    margin: 16px 0;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    margin: 12px 0;
     color: var(--text-muted);
     font-style: italic;
     font-size: var(--dynamic-quote-size, 16px);
@@ -890,11 +896,11 @@ select {
         width: calc(100vw - 40px);
         max-width: 640px;
         margin: 10px;
-        padding: 20px;
+        padding: 18px;
     }
 
     .poster-content {
-        padding: 20px;
+        padding: 24px;
     }
 }
 

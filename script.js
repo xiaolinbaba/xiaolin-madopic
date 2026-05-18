@@ -3,7 +3,7 @@ const AppState = {
     zoom: 100,
     background: 'gradient1',
     fontSize: 18,
-    padding: 40,
+    padding: 24,
     width: 640,
     mode: 'free', // 'free' | 'xhs' | 'pyq'
     fixedHeights: { xhs: null, pyq: null }
@@ -218,7 +218,7 @@ function autoSave(content) {
             background: currentBackground,
             fontSize: typeof currentFontSize !== 'undefined' ? currentFontSize : 18,
             width: typeof currentWidth !== 'undefined' ? currentWidth : 640,
-            padding: typeof currentPadding !== 'undefined' ? currentPadding : 40,
+            padding: typeof currentPadding !== 'undefined' ? currentPadding : 24,
             mode: typeof currentMode !== 'undefined' ? currentMode : 'free'
         }));
     } catch (e) {
@@ -1386,8 +1386,8 @@ function applyFontSize(fontSize) {
 }
 
 function applyPadding(padding) {
-    // 调整外层容器的内边距，即图片中红色箭头指向的边距
-    markdownPoster.style.padding = `${padding}px`;
+    // 调整白色内容卡片的内边距，即文字到紫色背景之间的留白
+    posterContent.style.padding = `${padding}px`;
 }
 
 function applyWidth(width) {
@@ -2064,7 +2064,7 @@ async function renderWithFallbackScales(node, targetWidth, targetHeight, scales)
                         clonedTarget.style.setProperty('left', '0', 'important');
                         clonedTarget.style.setProperty('margin', '0', 'important');
                         clonedTarget.style.setProperty('width', `${currentWidth}px`, 'important');
-                        clonedTarget.style.setProperty('padding', `${currentPadding}px`, 'important');
+                        clonedTarget.style.setProperty('padding', getComputedStyle(markdownPoster).padding, 'important');
                         clonedTarget.style.setProperty('box-sizing', 'border-box', 'important');
                     }
                     // 再次为克隆文档内的图片设置跨域/防盗链属性（双保险）
