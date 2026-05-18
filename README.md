@@ -2,7 +2,7 @@
 
 > Madopic (Markdown to Picture) 精美的 Markdown 转图片工具 ✨
 
-![madopic.png](https://img.thus.chat/rest/uX3Ngdk.png)
+![madopic.png](https://pic4.zhimg.com/v2-a342a311176f76e4120b7084d9f18db3_r.jpg)
 
 一个现代化的在线工具，可以将 Markdown 文本转换为精美的图片海报，特别适合社交媒体分享。
 
