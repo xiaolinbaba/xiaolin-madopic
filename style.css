@@ -581,7 +581,7 @@ body {
 .poster-content blockquote {
     border-left: 4px solid #D1D5DB;
     padding-left: 16px;
-    background: var(--background-gray);
+    background: transparent;
     padding-top: 6px;
     padding-bottom: 6px;
     margin: 12px 0;
