@@ -119,9 +119,30 @@ function corsProxyUrl(url) {
     return `https://images.weserv.nl/?url=${encodeURIComponent(url)}`;
 }
 
+function isSafeUrl(value, type = 'link') {
+    if (!value) return true;
+    const normalized = String(value).replace(/[\u0000-\u001F\u007F\s]+/g, '').toLowerCase();
+    if (normalized.startsWith('javascript:') || normalized.startsWith('vbscript:')) {
+        return false;
+    }
+    if (normalized.startsWith('#') || normalized.startsWith('/') || normalized.startsWith('./') || normalized.startsWith('../')) {
+        return true;
+    }
+
+    try {
+        const parsed = new URL(value, window.location.href);
+        if (type === 'image') {
+            return ['http:', 'https:', 'data:', 'blob:'].includes(parsed.protocol)
+                && (!parsed.href.toLowerCase().startsWith('data:') || parsed.href.toLowerCase().startsWith('data:image/'));
+        }
+        return ['http:', 'https:', 'mailto:', 'tel:'].includes(parsed.protocol);
+    } catch (_) {
+        return false;
+    }
+}
+
 /**
  * HTML 清理函数：移除潜在的 XSS 攻击代码
- * 注意：这是一个基础版本，建议在生产环境中使用 DOMPurify 等专业库
  */
 function sanitizeHTML(html) {
     // 创建临时 DOM 容器
@@ -129,7 +150,7 @@ function sanitizeHTML(html) {
     temp.innerHTML = html;
 
     // 移除危险的标签
-    const dangerousTags = ['script', 'iframe', 'object', 'embed', 'link'];
+    const dangerousTags = ['script', 'iframe', 'object', 'embed', 'link', 'meta', 'base', 'form', 'input', 'button', 'textarea'];
     dangerousTags.forEach(tag => {
         const elements = temp.querySelectorAll(tag);
         elements.forEach(el => el.remove());
@@ -138,23 +159,27 @@ function sanitizeHTML(html) {
     // 移除危险的属性（on* 事件处理器）
     const allElements = temp.querySelectorAll('*');
     allElements.forEach(el => {
-        // 移除所有 on* 属性
         Array.from(el.attributes).forEach(attr => {
-            if (attr.name.startsWith('on')) {
+            const attrName = attr.name.toLowerCase();
+            if (attrName.startsWith('on') || attrName === 'srcdoc' || attrName === 'style' || attrName === 'formaction') {
                 el.removeAttribute(attr.name);
             }
         });
 
-        // 清理 href 和 src 中的 javascript: 协议
         if (el.hasAttribute('href')) {
             const href = el.getAttribute('href');
-            if (href && href.trim().toLowerCase().startsWith('javascript:')) {
+            if (!isSafeUrl(href, 'link')) {
                 el.removeAttribute('href');
+            } else if (el.tagName.toLowerCase() === 'a') {
+                el.setAttribute('rel', 'nofollow noopener noreferrer');
             }
+        }
+        if (el.hasAttribute('xlink:href') && !isSafeUrl(el.getAttribute('xlink:href'), 'link')) {
+            el.removeAttribute('xlink:href');
         }
         if (el.hasAttribute('src')) {
             const src = el.getAttribute('src');
-            if (src && src.trim().toLowerCase().startsWith('javascript:')) {
+            if (!isSafeUrl(src, 'image')) {
                 el.removeAttribute('src');
             }
         }
@@ -295,7 +320,7 @@ class MathRenderer {
                 throwOnError: false,
                 errorColor: '#cc0000',
                 strict: false,
-                trust: true,
+                trust: false,
                 macros: {
                     // 物理常量
                     '\\emc': 'E=mc^{2}',
@@ -406,7 +431,8 @@ class DiagramRenderer {
             },
             gantt: {
                 useMaxWidth: true
-            }
+            },
+            securityLevel: 'strict'
         };
         this.checkMermaidAvailability();
     }
@@ -451,13 +477,19 @@ class DiagramRenderer {
     }
 
     showDiagramError(element, errorMessage) {
-        element.innerHTML = `
-            <div class="diagram-error">
-                <i class="fas fa-exclamation-triangle"></i>
-                <div class="error-title">图表渲染错误</div>
-                <div class="error-message">${errorMessage}</div>
-            </div>
-        `;
+        element.textContent = '';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'diagram-error';
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-exclamation-triangle';
+        const title = document.createElement('div');
+        title.className = 'error-title';
+        title.textContent = '图表渲染错误';
+        const message = document.createElement('div');
+        message.className = 'error-message';
+        message.textContent = errorMessage;
+        wrapper.append(icon, title, message);
+        element.appendChild(wrapper);
         element.classList.add('diagram-error-container');
     }
 
@@ -577,20 +609,24 @@ class EChartsRenderer {
     }
 
     showEChartError(element, errorMessage) {
-        element.innerHTML = `
-            <div class="echarts-error" style="
-                padding: 20px;
-                border: 2px dashed #ff6b6b;
-                border-radius: 8px;
-                background-color: #ffe0e0;
-                color: #d63031;
-                text-align: center;
-                font-family: monospace;
-            ">
-                <i class="fas fa-exclamation-triangle" style="margin-right: 8px;"></i>
-                ECharts Error: ${errorMessage}
-            </div>
+        element.textContent = '';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'echarts-error';
+        wrapper.style.cssText = `
+            padding: 20px;
+            border: 2px dashed #ff6b6b;
+            border-radius: 8px;
+            background-color: #ffe0e0;
+            color: #d63031;
+            text-align: center;
+            font-family: monospace;
         `;
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-exclamation-triangle';
+        icon.style.marginRight = '8px';
+        const text = document.createTextNode(`ECharts Error: ${errorMessage}`);
+        wrapper.append(icon, text);
+        element.appendChild(wrapper);
     }
 
     preprocessECharts(markdown) {
@@ -693,6 +729,7 @@ class CardRenderer {
             let htmlContent = '';
             try {
                 htmlContent = marked.parse(content);
+                htmlContent = sanitizeHTML(htmlContent);
             } catch (err) {
                 console.error('卡片内容Markdown解析失败: ', err);
                 htmlContent = '<p>卡片内容解析失败</p>';
@@ -711,13 +748,17 @@ class CardRenderer {
 
         } catch (error) {
             console.error('卡片渲染错误:', error);
-            element.innerHTML = `
-                <div class="madopic-card">
-                    <div class="card-content">
-                        <p style="color: #ef4444;">卡片渲染失败：${error.message}</p>
-                    </div>
-                </div>
-            `;
+            element.textContent = '';
+            const card = document.createElement('div');
+            card.className = 'madopic-card';
+            const content = document.createElement('div');
+            content.className = 'card-content';
+            const message = document.createElement('p');
+            message.style.color = '#ef4444';
+            message.textContent = `卡片渲染失败：${error.message}`;
+            content.appendChild(message);
+            card.appendChild(content);
+            element.appendChild(card);
         }
     }
 }
@@ -2127,12 +2168,14 @@ function showNotification(message, type = 'info') {
     // 创建通知元素
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
-    notification.innerHTML = `
-        <div class="notification-content">
-            <i class="fas ${getNotificationIcon(type)}"></i>
-            <span>${message}</span>
-        </div>
-    `;
+    const content = document.createElement('div');
+    content.className = 'notification-content';
+    const icon = document.createElement('i');
+    icon.className = `fas ${getNotificationIcon(type)}`;
+    const text = document.createElement('span');
+    text.textContent = message;
+    content.append(icon, text);
+    notification.appendChild(content);
 
     // 添加样式
     Object.assign(notification.style, {
@@ -2168,7 +2211,7 @@ function showNotification(message, type = 'info') {
         notification.style.top = '120px';
     }
 
-    notification.querySelector('.notification-content').style.cssText = `
+    content.style.cssText = `
         display: flex;
         align-items: center;
         gap: 8px;
@@ -2243,7 +2286,7 @@ function setupKeyboardShortcuts() {
 
         // ESC 键关闭面板
         if (e.key === 'Escape') {
-            closeCustomPanel();
+            closeAllPanels();
         }
     });
 }
@@ -2943,6 +2986,7 @@ function setupHamburgerMenu() {
 function restoreDraft() {
     const draft = loadDraft();
     const settings = loadSettings();
+    let shouldRefreshPreview = false;
 
     if (draft && markdownInput) {
         // 只有当草稿内容与默认内容不同时才恢复
@@ -2950,6 +2994,7 @@ function restoreDraft() {
         if (draft !== defaultContent && draft.trim().length > 0) {
             markdownInput.value = draft;
             undoRedoManager.push(draft);
+            shouldRefreshPreview = true;
         }
     }
 
@@ -2957,10 +3002,46 @@ function restoreDraft() {
     if (settings) {
         if (settings.background) {
             currentBackground = settings.background;
+            if (backgroundPresets[currentBackground]) {
+                applyBackground(backgroundPresets[currentBackground]);
+            }
         }
-        if (settings.mode && typeof switchMode === 'function') {
-            // 稍后在 DOM 准备好后切换模式
+        if (Number.isFinite(settings.fontSize)) {
+            currentFontSize = settings.fontSize;
+            const fontSizeSlider = document.getElementById('fontSizeSlider');
+            const fontSizeValue = document.getElementById('fontSizeValue');
+            if (fontSizeSlider) fontSizeSlider.value = currentFontSize;
+            if (fontSizeValue) fontSizeValue.textContent = `${currentFontSize}px`;
+            applyFontSize(currentFontSize);
+            shouldRefreshPreview = true;
         }
+        if (Number.isFinite(settings.padding)) {
+            currentPadding = settings.padding;
+            const paddingSlider = document.getElementById('paddingSlider');
+            const paddingValue = document.getElementById('paddingValue');
+            if (paddingSlider) paddingSlider.value = currentPadding;
+            if (paddingValue) paddingValue.textContent = `${currentPadding}px`;
+            applyPadding(currentPadding);
+            shouldRefreshPreview = true;
+        }
+        if (Number.isFinite(settings.width)) {
+            currentWidth = settings.width;
+            const widthSlider = document.getElementById('widthSlider');
+            const widthValue = document.getElementById('widthValue');
+            if (widthSlider) widthSlider.value = currentWidth;
+            if (widthValue) widthValue.textContent = `${currentWidth}px`;
+            applyWidth(currentWidth);
+            shouldRefreshPreview = true;
+        }
+        if (settings.mode && ['free', 'xhs', 'pyq'].includes(settings.mode)) {
+            setMode(settings.mode);
+            shouldRefreshPreview = true;
+        }
+    }
+
+    if (shouldRefreshPreview) {
+        updateLineNumbers();
+        updatePreview();
     }
 }
 
@@ -2976,7 +3057,6 @@ function initOptimizations() {
         // 监听输入事件，记录撤销状态
         markdownInput.addEventListener('input', () => {
             pushUndoState();
-            debouncedUpdatePreview();
         });
     }
 

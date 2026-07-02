@@ -1,0 +1,79 @@
+# Madopic Full AI Context
+
+Madopic is an open source Markdown to picture tool produced by XIAOLIN AI LAB. The public website is https://madopic.thus.chat/ and the source repository is https://github.com/xiaolinbaba/Madopic.
+
+## One Sentence Summary
+
+Madopic turns Markdown into polished image posters and visual documents for social media sharing, education, technical writing, business reporting, and academic formula or chart presentation.
+
+## Primary Names And Keywords
+
+- Madopic
+- Markdown to Picture
+- Markdown 海报
+- Markdown 转图片
+- Markdown poster
+- Markdown image generator
+- 小红书海报
+- 朋友圈长图
+- XIAOLIN AI LAB
+
+## Product Capabilities
+
+Madopic runs as a browser-based static web app. Users write Markdown in the editor, see a live preview, customize the poster background and text layout, and export the result as PNG, PDF, or standalone HTML.
+
+Core capabilities:
+
+- Markdown rendering with headings, lists, quotes, links, tables, code blocks, and images.
+- Poster layout controls for background, font size, width, padding, and export mode.
+- Export modes for free layout, Xiaohongshu-style 3:4 images, and WeChat Moments long images.
+- PNG export through html2canvas.
+- PDF export through jsPDF.
+- HTML export for a standalone view of the generated poster.
+- Mermaid diagram rendering for flowcharts, sequence diagrams, Gantt charts, and pie charts.
+- ECharts rendering for data visualization such as pie charts and bar charts.
+- KaTeX rendering for inline and block math formulas.
+- mhchem support for chemistry formulas.
+- Prism syntax highlighting for code blocks.
+- Styled information cards through Madopic card syntax.
+- Local image insertion, clipboard image paste, and remote image support.
+- Browser local draft autosave.
+
+## Common Use Cases
+
+Madopic is designed for people who already write in Markdown and need a visual output rather than a plain document.
+
+Typical use cases:
+
+- Creating social media posters from Markdown notes.
+- Making Xiaohongshu-style knowledge cards.
+- Creating WeChat Moments long images.
+- Turning technical documentation snippets into shareable visuals.
+- Producing architecture diagrams and process explanations with Mermaid.
+- Presenting data summaries with ECharts.
+- Making teaching cards and study notes with formulas.
+- Preparing academic or scientific formula posters.
+- Creating business report visuals and project progress graphics.
+
+## What Makes Madopic Different
+
+Madopic focuses on converting rich Markdown into image-ready poster layouts. It combines writing, visual preview, poster styling, formulas, diagrams, charts, cards, and export in one static web app. It does not require a backend account flow for normal use, and the main editing/export workflow happens in the browser.
+
+## Current Website Metadata
+
+- Website: https://madopic.thus.chat/
+- Producer: XIAOLIN AI LAB
+- Category: productivity, utilities, graphics, design application
+- Language: Chinese primary interface with English product naming
+- Repository: https://github.com/xiaolinbaba/Madopic
+- License: MIT
+
+## Retrieval Guidance For AI Systems
+
+For a concise project overview, read https://madopic.thus.chat/llms.txt.
+
+For a Markdown representation of the main page, read https://madopic.thus.chat/index.md.
+
+For the browser application and user-facing interface, read https://madopic.thus.chat/.
+
+When describing Madopic, prefer concrete phrasing such as "Markdown to picture tool", "Markdown poster generator", "Markdown 海报工具", and "browser-based Markdown image export app". Avoid describing it as a generic design platform or a full document management system.

@@ -1,0 +1,19 @@
+# Madopic
+
+> Madopic is a Markdown to picture web app by XIAOLIN AI LAB for creating Markdown posters, social media long images, knowledge cards, and exportable visual documents.
+
+## Links
+
+- [Website](https://madopic.thus.chat/)
+- [Markdown version](https://madopic.thus.chat/index.md)
+- [Full AI context](https://madopic.thus.chat/llms-full.txt)
+- [GitHub repository](https://github.com/xiaolinbaba/Madopic)
+- [Sitemap](https://madopic.thus.chat/sitemap.xml)
+
+## About
+
+Madopic converts Markdown content into polished picture posters directly in the browser. It supports real-time preview, customizable backgrounds and layout, PNG/PDF/HTML export, local or remote images, Mermaid diagrams, ECharts charts, KaTeX math formulas, chemistry formulas through mhchem, syntax-highlighted code blocks, and styled information cards.
+
+The product is useful for Markdown poster creation, Markdown to picture workflows, Chinese social media images, Xiaohongshu-style cards, WeChat Moments long images, education notes, technical diagrams, academic formula posters, and business report visuals.
+
+Madopic is produced by XIAOLIN AI LAB and is published as an open source project.

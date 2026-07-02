@@ -5,11 +5,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Madopic - Markdown to Picture</title>
-    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260119">
-    <link rel="apple-touch-icon" href="madopic.png?v=20260119">
+    <meta name="description" content="Madopic 是由 XIAOLIN AI LAB 出品的在线 Markdown 转图片工具，支持 Markdown 海报、社交媒体长图、数学公式、Mermaid、ECharts，以及 PNG、PDF、HTML 导出。">
+    <meta name="keywords" content="Markdown to picture, Markdown 海报, Markdown 转图片, Madopic, 小红书海报, 朋友圈长图, XIAOLIN AI LAB">
+    <meta name="author" content="XIAOLIN AI LAB">
+    <meta name="application-name" content="Madopic">
+    <meta name="robots" content="index, follow">
     <meta name="theme-color" content="#6366f1">
-    <meta name="description" content="精美的 Markdown 转图片工具，轻松制作社交媒体图片">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://umami.thus.chat; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; font-src 'self' data: https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://umami.thus.chat https://images.weserv.nl; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'; upgrade-insecure-requests">
+    <link rel="canonical" href="https://madopic.thus.chat/">
+    <link rel="alternate" type="text/markdown" href="https://madopic.thus.chat/index.md">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260119">
     <link rel="manifest" href="manifest.json?v=20260119">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Madopic">
+    <meta property="og:title" content="Madopic - Markdown to Picture">
+    <meta property="og:description" content="在线将 Markdown 转为精美图片海报，支持公式、图表、信息卡片和 PNG/PDF/HTML 导出。由 XIAOLIN AI LAB 出品。">
+    <meta property="og:url" content="https://madopic.thus.chat/">
+    <meta property="og:image" content="https://madopic.thus.chat/favicon.svg">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Madopic - Markdown to Picture">
+    <meta name="twitter:description" content="Markdown 海报生成工具，支持社交媒体长图、数学公式、Mermaid、ECharts 和多格式导出。">
+    <meta name="twitter:image" content="https://madopic.thus.chat/favicon.svg">
     <link rel="stylesheet" href="style.css?v=20260119">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- KaTeX CSS -->
@@ -30,6 +47,32 @@
     <!-- Prism.js 代码高亮 JS -->
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script defer src="https://umami.thus.chat/script.js" data-website-id="3aea19d8-e893-455d-9e48-54ba56a2af8a"></script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Madopic",
+        "alternateName": "Markdown to Picture",
+        "url": "https://madopic.thus.chat/",
+        "applicationCategory": "DesignApplication",
+        "operatingSystem": "Web",
+        "creator": {
+            "@type": "Organization",
+            "name": "XIAOLIN AI LAB"
+        },
+        "description": "Madopic 是在线 Markdown 转图片工具，可制作 Markdown 海报、社交媒体长图、知识卡片、技术文档图片和公式图表海报。",
+        "featureList": [
+            "Markdown to picture",
+            "Markdown 海报生成",
+            "PNG、PDF、HTML 导出",
+            "Mermaid 图表",
+            "ECharts 数据图表",
+            "KaTeX 数学公式"
+        ],
+        "license": "https://opensource.org/licenses/MIT"
+    }
+    </script>
 </head>
 
 <body>
@@ -74,7 +117,7 @@
                 <button class="btn btn-primary" id="exportHtmlBtn">
                     <i class="fas fa-file-code"></i> 导出HTML
                 </button>
-                <a href="https://github.com/xiaolinbaba/Madopic" target="_blank" class="github-link" title="查看GitHub源码">
+                <a href="https://github.com/xiaolinbaba/Madopic" target="_blank" rel="noopener noreferrer" class="github-link" title="查看GitHub源码">
                     <i class="fab fa-github"></i>
                 </a>
             </div>
@@ -305,6 +348,7 @@
     </div>
 
     <script src="script.js?v=20260119"></script>
+    <noscript>Madopic 是由 XIAOLIN AI LAB 出品的 Markdown to picture 在线工具，可将 Markdown 内容制作成图片海报、社交媒体长图、知识卡片、技术文档图和公式图表海报。</noscript>
 </body>
 
 </html>

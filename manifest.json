@@ -1,8 +1,9 @@
 {
   "name": "Madopic - Markdown to Picture",
   "short_name": "Madopic",
-  "description": "精美的 Markdown 转图片工具，轻松制作社交媒体图片",
+  "description": "由 XIAOLIN AI LAB 出品的 Markdown to picture 工具，用于制作 Markdown 海报、社交媒体长图、公式图表和知识卡片。",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#6366f1",
