@@ -281,6 +281,29 @@ function loadSettings() {
 }
 
 // ===== 数学公式渲染器 =====
+function protectMarkdownSegments(markdown) {
+    const segments = [];
+    const protect = (text, pattern) => text.replace(pattern, (match) => {
+        const token = `\uE000MADOPIC_PROTECTED_${segments.length}\uE001`;
+        segments.push(match);
+        return token;
+    });
+
+    let protectedText = markdown;
+    protectedText = protect(protectedText, /```[\s\S]*?```|~~~[\s\S]*?~~~/g);
+    protectedText = protect(protectedText, /`[^`\n]*`/g);
+    protectedText = protect(protectedText, /!?\[[^\]]*\]\([^\n)]*\)/g);
+    protectedText = protect(protectedText, /\$\$[\s\S]*?\$\$/g);
+    protectedText = protect(protectedText, /\$(?!\$)(?:\\.|[^$\n])+\$/g);
+
+    return {
+        text: protectedText,
+        restore(text) {
+            return text.replace(/\uE000MADOPIC_PROTECTED_(\d+)\uE001/g, (_, index) => segments[Number(index)] || '');
+        }
+    };
+}
+
 class MathRenderer {
     constructor() {
         this.isKaTeXLoaded = false;
@@ -362,6 +385,9 @@ class MathRenderer {
 
     // 预处理Markdown中的数学公式
     preprocessMath(markdown) {
+        const protectedMarkdown = protectMarkdownSegments(markdown);
+        markdown = protectedMarkdown.text;
+
         // 处理质能守恒公式的特殊情况
         markdown = markdown.replace(/E\s*=\s*mc\^?2/g, '$E=mc^{2}$');
 
@@ -399,7 +425,7 @@ class MathRenderer {
         markdown = markdown.replace(/φ/g, '$\\phi$');
         markdown = markdown.replace(/ω/g, '$\\omega$');
 
-        return markdown;
+        return protectedMarkdown.restore(markdown);
     }
 }
 
