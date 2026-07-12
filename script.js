@@ -1552,6 +1552,7 @@ function applyPadding(padding) {
 function applyWidth(width) {
     // 调整预览区的整体宽度（导出图片的宽度）
     markdownPoster.style.width = `${width}px`;
+    applyPreviewModeFrame();
 }
 
 function setupSliders() {

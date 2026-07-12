@@ -43,7 +43,9 @@ function createElement(overrides = {}) {
     querySelector() { return null; },
     querySelectorAll() { return []; },
     getBoundingClientRect() {
-      return { width: 640, height: 600, top: 0, left: 0, bottom: 600, right: 640 };
+      const width = Number.parseFloat(this.style.width) || 640;
+      const height = Number.parseFloat(this.style.height) || 600;
+      return { width, height, top: 0, left: 0, bottom: height, right: width };
     },
     cloneNode() { return createElement(); },
     ...overrides,
@@ -194,4 +196,26 @@ assert.match(
   source,
   /await\s+ImagePersistence\.loadAll\(\)[\s\S]*?restoreDraft\(\)/,
   'persisted images must load before the draft is restored',
+);
+
+run(`
+  currentMode = 'xhs';
+  markdownPoster.style.height = '';
+  applyWidth(800);
+`);
+assert.equal(
+  run('markdownPoster.style.height'),
+  '1067px',
+  'XHS height must be recalculated after width changes',
+);
+
+run(`
+  currentMode = 'pyq';
+  markdownPoster.style.height = '';
+  applyWidth(800);
+`);
+assert.equal(
+  run('markdownPoster.style.height'),
+  '1734px',
+  'PYQ height must be recalculated after width changes',
 );
