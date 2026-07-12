@@ -10,6 +10,22 @@ const script = read('script.js');
 
 assert.match(
   index,
+  /https:\/\/cdn\.jsdelivr\.net\/npm\/marked@\d+\.\d+\.\d+\/lib\/marked\.umd\.js/,
+  'Marked must be pinned to an explicit version',
+);
+assert.match(
+  index,
+  /font-src[^;]*https:\/\/cdn\.jsdelivr\.net[^;]*;/,
+  'CSP font-src must allow the jsDelivr-hosted KaTeX fonts',
+);
+assert.match(
+  index,
+  /<script src="script\.js\?v=20260712"><\/script>/,
+  'the application script cache key must be updated with this release',
+);
+
+assert.match(
+  index,
   /<script defer src="https:\/\/umami\.thus\.chat\/script\.js" data-website-id="3aea19d8-e893-455d-9e48-54ba56a2af8a"><\/script>/,
   'Umami script must match the production tracking snippet',
 );
