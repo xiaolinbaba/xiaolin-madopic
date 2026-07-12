@@ -168,3 +168,30 @@ assert.equal(
   'plain',
   'undo after toolbar formatting must restore the immediately previous content',
 );
+
+const imageDataUrl = 'data:image/png;base64,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+run(`
+  undoRedoManager.history = [];
+  undoRedoManager.index = -1;
+  markdownInput.value = '';
+  markdownInput.selectionStart = 0;
+  markdownInput.selectionEnd = 0;
+  insertImageIntoMarkdown(${JSON.stringify(imageDataUrl)}, 'example.png');
+`);
+const imageMarkdown = run('markdownInput.value');
+assert.match(
+  imageMarkdown,
+  /madopic-image:\/\/[A-Za-z0-9_-]+/,
+  'local images must use a stable draft-safe reference',
+);
+assert.equal(
+  run(`replaceImageDataForPreview(${JSON.stringify(imageMarkdown)})`).includes(imageDataUrl),
+  true,
+  'stable local-image references must resolve from the in-memory store',
+);
+assert.match(source, /const ImagePersistence\s*=\s*\{/, 'an IndexedDB persistence adapter must exist');
+assert.match(
+  source,
+  /await\s+ImagePersistence\.loadAll\(\)[\s\S]*?restoreDraft\(\)/,
+  'persisted images must load before the draft is restored',
+);

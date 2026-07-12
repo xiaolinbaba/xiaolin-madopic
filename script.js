@@ -840,6 +840,72 @@ const zoomLevel = document.querySelector('.zoom-level');
 
 // 图片数据存储（使用 Map 提供更好的性能）
 const imageDataStore = new Map();
+let hasShownImagePersistenceWarning = false;
+
+const ImagePersistence = {
+    databaseName: 'madopic',
+    databaseVersion: 1,
+    storeName: 'images',
+    databasePromise: null,
+
+    open() {
+        if (typeof indexedDB === 'undefined') {
+            return Promise.reject(new Error('IndexedDB is unavailable'));
+        }
+        if (this.databasePromise) return this.databasePromise;
+
+        this.databasePromise = new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.databaseName, this.databaseVersion);
+            request.onupgradeneeded = () => {
+                const database = request.result;
+                if (!database.objectStoreNames.contains(this.storeName)) {
+                    database.createObjectStore(this.storeName, { keyPath: 'id' });
+                }
+            };
+            request.onsuccess = () => {
+                const database = request.result;
+                database.onversionchange = () => database.close();
+                resolve(database);
+            };
+            request.onerror = () => reject(request.error || new Error('Unable to open image storage'));
+            request.onblocked = () => reject(new Error('Image storage upgrade is blocked'));
+        }).catch((error) => {
+            this.databasePromise = null;
+            throw error;
+        });
+
+        return this.databasePromise;
+    },
+
+    async loadAll() {
+        const database = await this.open();
+        const records = await new Promise((resolve, reject) => {
+            const request = database.transaction(this.storeName, 'readonly')
+                .objectStore(this.storeName)
+                .getAll();
+            request.onsuccess = () => resolve(request.result || []);
+            request.onerror = () => reject(request.error || new Error('Unable to load saved images'));
+        });
+
+        records.forEach((record) => {
+            if (record && typeof record.id === 'string' && typeof record.dataUrl === 'string') {
+                imageDataStore.set(record.id, record.dataUrl);
+            }
+        });
+        return records.length;
+    },
+
+    async save(id, dataUrl) {
+        const database = await this.open();
+        await new Promise((resolve, reject) => {
+            const transaction = database.transaction(this.storeName, 'readwrite');
+            transaction.objectStore(this.storeName).put({ id, dataUrl });
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error || new Error('Unable to save image'));
+            transaction.onabort = () => reject(transaction.error || new Error('Image save was aborted'));
+        });
+    }
+};
 
 // 图片缓存管理器
 const ImageCache = {
@@ -887,11 +953,18 @@ let hasInitialPreviewRendered = false;
 let lastRenderedMarkdown = '';
 
 // 初始化应用
-document.addEventListener('DOMContentLoaded', function () {
+async function bootstrapApp() {
     initializeApp();
     setupEventListeners();
-    updatePreview();
-});
+    await initOptimizations();
+    await updatePreview();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrapApp);
+} else {
+    bootstrapApp();
+}
 
 // 初始化应用
 function initializeApp() {
@@ -2784,15 +2857,15 @@ function insertImageIntoMarkdown(base64, filename) {
     const beforeText = textarea.value.substring(0, cursorPos);
     const afterText = textarea.value.substring(cursorPos);
 
-    // 创建简化的图片Markdown语法用于显示（截断base64）
-    const base64Header = base64.split(',')[0] + ','; // 保留data:image/xxx;base64,部分
-    const base64Data = base64.split(',')[1]; // 获取实际的base64数据
-    const shortBase64 = base64Header + base64Data.substring(0, 50) + '...'; // 只显示前50个字符
-
-    const imageMarkdown = `\n![${filename}](${shortBase64})\n`;
+    // 使用稳定短引用，完整图片数据保存在内存与 IndexedDB 中
+    const randomId = window.crypto && typeof window.crypto.randomUUID === 'function'
+        ? window.crypto.randomUUID()
+        : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
+    const imageReference = `madopic-image://${randomId}`;
+    const imageMarkdown = `\n![${filename}](${imageReference})\n`;
 
     // 存储完整的图片数据供预览和导出使用
-    storeImageData(shortBase64, base64);
+    storeImageData(imageReference, base64);
 
     // 插入到光标位置
     applyEditorChange(
@@ -2805,6 +2878,15 @@ function insertImageIntoMarkdown(base64, filename) {
 // 存储图片数据映射
 function storeImageData(shortBase64, fullBase64) {
     imageDataStore.set(shortBase64, fullBase64);
+    if (typeof indexedDB !== 'undefined') {
+        ImagePersistence.save(shortBase64, fullBase64).catch((error) => {
+            console.warn('图片持久化失败，将仅在当前页面保留:', error);
+            if (!hasShownImagePersistenceWarning) {
+                hasShownImagePersistenceWarning = true;
+                showNotification('图片已插入，但浏览器无法持久保存；刷新后可能需要重新插入', 'warning');
+            }
+        });
+    }
 }
 
 // 替换预览中的简化base64为完整base64
@@ -3099,7 +3181,14 @@ function restoreDraft() {
 }
 
 // ===== 初始化所有优化功能 =====
-function initOptimizations() {
+async function initOptimizations() {
+    // 先恢复本地图片映射，避免草稿首次渲染出现失效的短引用
+    try {
+        await ImagePersistence.loadAll();
+    } catch (error) {
+        console.warn('本地图片存储不可用，将使用内存模式:', error);
+    }
+
     // 恢复草稿
     restoreDraft();
 
@@ -3123,11 +3212,4 @@ function initOptimizations() {
     setupHamburgerMenu();
 
     console.log('Madopic 优化功能已初始化');
-}
-
-// 页面加载完成后初始化
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initOptimizations);
-} else {
-    initOptimizations();
 }
