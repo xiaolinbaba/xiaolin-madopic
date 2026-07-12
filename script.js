@@ -199,6 +199,7 @@ class UndoRedoManager {
 
     push(state) {
         if (this.isUndoRedo) return;
+        if (this.index >= 0 && this.history[this.index] === state) return;
         // 移除当前位置之后的历史
         this.history = this.history.slice(0, this.index + 1);
         this.history.push(state);

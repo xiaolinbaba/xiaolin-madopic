@@ -171,6 +171,18 @@ assert.equal(
   'undo after toolbar formatting must restore the immediately previous content',
 );
 
+run(`
+  undoRedoManager.history = [];
+  undoRedoManager.index = -1;
+  undoRedoManager.push('same');
+  undoRedoManager.push('same');
+`);
+assert.equal(
+  run('undoRedoManager.history.length'),
+  1,
+  'adjacent duplicate states must not create no-op undo steps',
+);
+
 const imageDataUrl = 'data:image/png;base64,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 run(`
   undoRedoManager.history = [];
