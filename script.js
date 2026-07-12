@@ -1070,6 +1070,30 @@ function setupToolbarButtons() {
     });
 }
 
+function applyEditorChange(nextValue, selectionStart, selectionEnd = selectionStart, options = {}) {
+    if (!markdownInput) return;
+
+    const { focus = true, recordHistory = true } = options;
+    const previousValue = markdownInput.value;
+
+    if (recordHistory && undoRedoManager.history[undoRedoManager.index] !== previousValue) {
+        undoRedoManager.push(previousValue);
+    }
+
+    markdownInput.value = nextValue;
+    const safeStart = Math.max(0, Math.min(selectionStart, nextValue.length));
+    const safeEnd = Math.max(safeStart, Math.min(selectionEnd, nextValue.length));
+    markdownInput.setSelectionRange(safeStart, safeEnd);
+
+    if (recordHistory && undoRedoManager.history[undoRedoManager.index] !== nextValue) {
+        undoRedoManager.push(nextValue);
+    }
+
+    updateLineNumbers();
+    updatePreview();
+    if (focus) markdownInput.focus();
+}
+
 // 处理工具栏动作
 function handleToolbarAction(action) {
     const textarea = markdownInput;
@@ -1142,16 +1166,11 @@ function handleToolbarAction(action) {
             cursorPos = start + insertText.length;
             break;
         case 'clear':
-            textarea.value = '';
-            updatePreview();
-            textarea.focus();
+            applyEditorChange('', 0, 0);
             return;
     }
 
-    textarea.value = beforeText + insertText + afterText;
-    textarea.setSelectionRange(cursorPos, cursorPos);
-    textarea.focus();
-    updatePreview();
+    applyEditorChange(beforeText + insertText + afterText, cursorPos, cursorPos);
 }
 
 // 更新预览
@@ -2365,9 +2384,12 @@ const MarkdownHelper = {
         const beforeText = textarea.value.substring(0, cursorPos);
         const afterText = textarea.value.substring(cursorPos);
 
-        textarea.value = beforeText + table + afterText;
-        textarea.setSelectionRange(cursorPos + table.length, cursorPos + table.length);
-        updatePreview();
+        applyEditorChange(
+            beforeText + table + afterText,
+            cursorPos + table.length,
+            cursorPos + table.length,
+            { focus: false }
+        );
     },
 
     // 插入代码块
@@ -2379,9 +2401,12 @@ const MarkdownHelper = {
         const beforeText = textarea.value.substring(0, cursorPos);
         const afterText = textarea.value.substring(cursorPos);
 
-        textarea.value = beforeText + codeBlock + afterText;
-        textarea.setSelectionRange(cursorPos + 4 + language.length, cursorPos + 4 + language.length);
-        updatePreview();
+        applyEditorChange(
+            beforeText + codeBlock + afterText,
+            cursorPos + 4 + language.length,
+            cursorPos + 4 + language.length,
+            { focus: false }
+        );
     },
 
     // 通用的插入方法
@@ -2391,10 +2416,11 @@ const MarkdownHelper = {
         const beforeText = textarea.value.substring(0, cursorPos);
         const afterText = textarea.value.substring(cursorPos);
 
-        textarea.value = beforeText + text + afterText;
-        textarea.setSelectionRange(cursorPos + text.length, cursorPos + text.length);
-        textarea.focus();
-        updatePreview();
+        applyEditorChange(
+            beforeText + text + afterText,
+            cursorPos + text.length,
+            cursorPos + text.length
+        );
     },
 
     // 插入质能守恒公式
@@ -2769,10 +2795,11 @@ function insertImageIntoMarkdown(base64, filename) {
     storeImageData(shortBase64, base64);
 
     // 插入到光标位置
-    textarea.value = beforeText + imageMarkdown + afterText;
-    textarea.setSelectionRange(cursorPos + imageMarkdown.length, cursorPos + imageMarkdown.length);
-    textarea.focus();
-    updatePreview();
+    applyEditorChange(
+        beforeText + imageMarkdown + afterText,
+        cursorPos + imageMarkdown.length,
+        cursorPos + imageMarkdown.length
+    );
 }
 
 // 存储图片数据映射

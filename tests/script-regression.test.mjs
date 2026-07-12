@@ -136,3 +136,35 @@ assert.equal(
   '公式 $F=ma$',
   'plain-text formula shortcuts must remain supported',
 );
+
+run(`
+  updatePreview = () => Promise.resolve();
+  updateLineNumbers = () => {};
+  undoRedoManager.history = [];
+  undoRedoManager.index = -1;
+  markdownInput.value = '清空前的内容';
+  undoRedoManager.push(markdownInput.value);
+  handleToolbarAction('clear');
+`);
+assert.equal(run('markdownInput.value'), '', 'clear must still empty the editor');
+assert.equal(
+  run('undoRedoManager.undo()'),
+  '清空前的内容',
+  'undo after clear must restore the immediately previous content',
+);
+
+run(`
+  undoRedoManager.history = [];
+  undoRedoManager.index = -1;
+  markdownInput.value = 'plain';
+  markdownInput.selectionStart = 0;
+  markdownInput.selectionEnd = 5;
+  undoRedoManager.push(markdownInput.value);
+  handleToolbarAction('bold');
+`);
+assert.equal(run('markdownInput.value'), '**plain**', 'toolbar formatting must keep its current output');
+assert.equal(
+  run('undoRedoManager.undo()'),
+  'plain',
+  'undo after toolbar formatting must restore the immediately previous content',
+);
