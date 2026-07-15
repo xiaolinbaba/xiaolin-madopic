@@ -818,7 +818,7 @@ const EXPORT_SCALE = getPreferredExportScale();
 
 // 预设背景渐变
 const backgroundPresets = {
-    gradient1: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    gradient1: 'linear-gradient(135deg, #A755F7 0%, #7275F2 50%, #6C23AA 100%)',
     gradient2: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
     gradient3: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
     gradient4: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',

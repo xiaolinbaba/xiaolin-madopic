@@ -581,7 +581,7 @@ body {
 .poster-content blockquote {
     border-left: 4px solid #D1D5DB;
     padding-left: 16px;
-    background: var(--background-gray);
+    background: var(--background-secondary);
     padding-top: 6px;
     padding-bottom: 6px;
     margin: 12px 0;
@@ -774,37 +774,37 @@ body {
     transform: scale(1.05);
 }
 
-/* 背景预设样式 - 纯色方案 */
+/* 背景预设样式 - 与实际导出的渐变保持一致 */
 .bg-preset[data-bg="gradient1"] {
-    background: #5B5BD6;
+    background: linear-gradient(135deg, #A755F7 0%, #7275F2 50%, #6C23AA 100%);
 }
 
 .bg-preset[data-bg="gradient2"] {
-    background: #DC2626;
+    background: linear-gradient(135deg, #F093FB 0%, #F5576C 100%);
 }
 
 .bg-preset[data-bg="gradient3"] {
-    background: #0EA5E9;
+    background: linear-gradient(135deg, #4FACFE 0%, #00F2FE 100%);
 }
 
 .bg-preset[data-bg="gradient4"] {
-    background: #059669;
+    background: linear-gradient(135deg, #43E97B 0%, #38F9D7 100%);
 }
 
 .bg-preset[data-bg="gradient5"] {
-    background: #F59E0B;
+    background: linear-gradient(135deg, #FA709A 0%, #FEE140 100%);
 }
 
 .bg-preset[data-bg="gradient6"] {
-    background: #EC4899;
+    background: linear-gradient(135deg, #A8EDEA 0%, #FED6E3 100%);
 }
 
 .bg-preset[data-bg="gradient7"] {
-    background: #8B5CF6;
+    background: linear-gradient(135deg, #FFECD2 0%, #FCB69F 100%);
 }
 
 .bg-preset[data-bg="gradient8"] {
-    background: #64748B;
+    background: linear-gradient(135deg, #FF9A9E 0%, #FECFEF 100%);
 }
 
 .color-inputs {

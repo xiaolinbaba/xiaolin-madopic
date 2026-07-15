@@ -7,6 +7,7 @@ const read = (file) => readFileSync(resolve(root, file), 'utf8');
 
 const index = read('index.html');
 const script = read('script.js');
+const style = read('style.css');
 
 assert.match(
   index,
@@ -20,8 +21,26 @@ assert.match(
 );
 assert.match(
   index,
-  /<script src="script\.js\?v=20260712"><\/script>/,
+  /<script src="script\.js\?v=20260715-2"><\/script>/,
   'the application script cache key must be updated with this release',
+);
+
+assert.match(
+  index,
+  /<link rel="stylesheet" href="style\.css\?v=20260715-2">/,
+  'the stylesheet cache key must be updated with this release',
+);
+
+assert.match(
+  style,
+  /\.poster-content blockquote\s*\{[\s\S]*?background:\s*var\(--background-secondary\)/,
+  'blockquotes must use the extra-light gray background token',
+);
+
+assert.match(
+  style,
+  /\.bg-preset\[data-bg="gradient1"\]\s*\{[\s\S]*?#A755F7 0%, #7275F2 50%, #6C23AA 100%/,
+  'the purple preset swatch must match the exported gradient',
 );
 
 assert.match(

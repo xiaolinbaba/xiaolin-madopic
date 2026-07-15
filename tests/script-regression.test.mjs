@@ -122,6 +122,12 @@ vm.runInContext(source, context, { filename: 'script.js' });
 const run = (code) => vm.runInContext(code, context);
 
 assert.equal(
+  run('backgroundPresets.gradient1'),
+  'linear-gradient(135deg, #A755F7 0%, #7275F2 50%, #6C23AA 100%)',
+  'the default purple gradient must preserve the reference image color progression',
+);
+
+assert.equal(
   run('mathRenderer.preprocessMath("$F = ma$")'),
   '$F = ma$',
   'existing inline math must remain inline',
