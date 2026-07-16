@@ -34,7 +34,7 @@
     <!-- Prism.js 代码高亮 CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked@18.0.6/lib/marked.umd.js"></script>
-    <!-- html2canvas 和 jsPDF 改为懒加载，不在此处同步加载 -->
+    <!-- html2canvas 仅在 PNG 导出时懒加载；PDF 使用浏览器原生打印以保留可编辑文字 -->
     <!-- KaTeX JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
@@ -347,7 +347,7 @@
         <div class="overlay" id="overlay"></div>
     </div>
 
-    <script src="script.js?v=20260715-2"></script>
+    <script src="script.js?v=20260716-1"></script>
     <noscript>Madopic 是由 XIAOLIN AI LAB 出品的 Markdown to picture 在线工具，可将 Markdown 内容制作成图片海报、社交媒体长图、知识卡片、技术文档图和公式图表海报。</noscript>
 </body>
 

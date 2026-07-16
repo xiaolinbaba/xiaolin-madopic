@@ -21,7 +21,7 @@ assert.match(
 );
 assert.match(
   index,
-  /<script src="script\.js\?v=20260715-2"><\/script>/,
+  /<script src="script\.js\?v=20260716-1"><\/script>/,
   'the application script cache key must be updated with this release',
 );
 
@@ -88,3 +88,18 @@ assert.ok(
   'ECharts error messages should be rendered as text nodes',
 );
 assert.ok(!script.includes('closeCustomPanel()'), 'Escape should call the existing panel close function');
+
+assert.ok(
+  !script.includes("pdf.addImage(imgData, 'PNG'"),
+  'PDF export must not rasterize the whole poster into one image',
+);
+assert.match(
+  script,
+  /function buildPrintablePDFHTML[\s\S]*?@page\{size:/,
+  'PDF export must build a native printable document with an exact page size',
+);
+assert.match(
+  script,
+  /printWindow\.print\(\)/,
+  'PDF export must use native browser printing so text remains selectable',
+);

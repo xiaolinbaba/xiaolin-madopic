@@ -216,6 +216,15 @@ assert.match(
   'persisted images must load before the draft is restored',
 );
 
+assert.equal(
+  run(`absolutizeCssUrls(
+    'src:url(fonts/KaTeX_Main-Regular.woff2) format("woff2")',
+    'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css'
+  )`),
+  'src:url("https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/fonts/KaTeX_Main-Regular.woff2") format("woff2")',
+  'printable PDF CSS must resolve relative font URLs against the source stylesheet',
+);
+
 run(`
   currentMode = 'xhs';
   markdownPoster.style.height = '';

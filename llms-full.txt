@@ -28,7 +28,7 @@ Core capabilities:
 - Poster layout controls for background, font size, width, padding, and export mode.
 - Export modes for free layout, Xiaohongshu-style 3:4 images, and WeChat Moments long images.
 - PNG export through html2canvas.
-- PDF export through jsPDF.
+- PDF export through native browser printing, preserving selectable and editable text.
 - HTML export for a standalone view of the generated poster.
 - Mermaid diagram rendering for flowcharts, sequence diagrams, Gantt charts, and pie charts.
 - ECharts rendering for data visualization such as pie charts and bar charts.

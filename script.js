@@ -75,10 +75,6 @@ async function loadScript(src) {
         loadedScripts.add(src);
         return;
     }
-    if (src.includes('jspdf') && typeof jsPDF !== 'undefined') {
-        loadedScripts.add(src);
-        return;
-    }
     return new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = src;
@@ -96,8 +92,7 @@ async function loadScript(src) {
  */
 async function ensureExportLibsLoaded() {
     const libs = [
-        'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js',
-        'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'
+        'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'
     ];
     await Promise.all(libs.map(loadScript));
 }
@@ -1894,20 +1889,33 @@ async function exportToPNG() {
 
 async function exportToPDF() {
     let exportNode = null;
-    try {
-        showNotification('正在生成 PDF...', 'info');
+    // 必须在第一个 await 之前打开窗口，否则浏览器会把它当作异步弹窗拦截。
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        showNotification('无法打开 PDF 导出窗口，请允许本站弹出窗口后重试', 'error');
+        return;
+    }
 
-        // 懒加载导出所需的库
-        await ensureExportLibsLoaded();
+    printWindow.document.write('<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><title>正在准备 PDF...</title></head><body style="font-family:system-ui,sans-serif;padding:32px;color:#374151">正在准备可编辑 PDF...</body></html>');
+    printWindow.document.close();
+
+    try {
+        showNotification('正在准备可编辑 PDF...', 'info');
+
+        const cssFetchPromise = Promise.all([
+            fetchCssBySelector('link[href*="style.css"]'),
+            fetchCssBySelector('link[rel="stylesheet"][href*="katex"]')
+        ]);
 
         exportNode = await createExactExportNode();
 
-        // 预处理导出节点中的图片
+        // 预处理图片，并将 Canvas 图表替换为可打印的静态图片。
         try {
             await prepareImagesForExport(exportNode);
         } catch (_) {
             // 忽略单个图片处理失败
         }
+        await replaceEChartsWithImages(exportNode);
 
         // 等待字体与一帧渲染
         if (document.fonts && document.fonts.ready) {
@@ -1918,90 +1926,25 @@ async function exportToPDF() {
         const rect = exportNode.getBoundingClientRect();
         const targetWidth = Math.ceil(rect.width);
         const targetHeight = Math.ceil(rect.height);
-
-        const tryScales = getExportScaleCandidates(EXPORT_SCALE);
-        const canvas = await renderWithFallbackScales(exportNode, targetWidth, targetHeight, tryScales);
-
-        // 尝试裁剪透明边缘，如果因跨域图片导致失败则跳过裁剪
-        let trimmedCanvas = null;
-        if (currentMode === 'free') {
-            try {
-                trimmedCanvas = trimTransparentEdges(canvas);
-            } catch (error) {
-                console.warn('无法裁剪透明边缘（可能包含跨域图片）:', error.message);
-            }
-        }
-        const outputCanvas = trimmedCanvas || canvas;
-
-        // 创建 PDF
-        const { jsPDF } = window.jspdf;
-
-        const canvasWidth = outputCanvas.width;
-        const canvasHeight = outputCanvas.height;
-
-        // 计算 PDF 页面尺寸（毫米）
-        // 默认使用 A4 纸张，但根据内容比例调整
-        const A4_WIDTH_MM = 210;
-        const A4_HEIGHT_MM = 297;
-        const aspectRatio = canvasWidth / canvasHeight;
-
-        let pdfWidth, pdfHeight, orientation;
-
-        if (aspectRatio > 1) {
-            orientation = 'landscape';
-            pdfWidth = A4_HEIGHT_MM;
-            pdfHeight = A4_WIDTH_MM;
-
-            if (aspectRatio > pdfWidth / pdfHeight) {
-                pdfHeight = pdfWidth / aspectRatio;
-            }
-        } else {
-            orientation = 'portrait';
-            pdfWidth = A4_WIDTH_MM;
-            pdfHeight = A4_HEIGHT_MM;
-
-            if (aspectRatio < pdfWidth / pdfHeight) {
-                pdfWidth = pdfHeight * aspectRatio;
-            }
-        }
-
-        const pdf = new jsPDF({
-            orientation: orientation,
-            unit: 'mm',
-            format: [pdfWidth, pdfHeight],
-            compress: false
+        const [localCss, katexCss] = await cssFetchPromise;
+        const html = buildPrintablePDFHTML(exportNode, { localCss, katexCss }, {
+            width: targetWidth,
+            height: targetHeight
         });
 
-        // 增强 toDataURL 错误处理
-        let imgData;
-        try {
-            imgData = outputCanvas.toDataURL('image/png', 1.0);
-        } catch (dataUrlError) {
-            console.error('toDataURL 失败:', dataUrlError);
-            if (dataUrlError.name === 'SecurityError') {
-                showNotification('PDF 导出失败：图片包含跨域资源。请移除外部图片后重试。', 'error');
-            } else {
-                showNotification('PDF 导出失败：无法生成图片数据。', 'error');
-            }
-            return;
-        }
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        await waitForPrintableWindow(printWindow);
 
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-
-        pdf.save(`madopic-${getFormattedTimestamp()}.pdf`);
-
-        showNotification('PDF 导出成功！', 'success');
+        printWindow.addEventListener('afterprint', () => printWindow.close(), { once: true });
+        printWindow.focus();
+        printWindow.print();
+        showNotification('请在打印面板中选择“另存为 PDF”；文字可选择和编辑', 'success');
     } catch (error) {
         console.error('PDF 导出失败:', error);
-        let errorMsg = 'PDF 导出失败，请重试';
-        if (error.message) {
-            if (error.message.includes('缩放倍数')) {
-                errorMsg = 'PDF 导出失败：内容过大，请缩短内容后重试';
-            } else if (error.message.includes('tainted') || error.message.includes('cross-origin')) {
-                errorMsg = 'PDF 导出失败：包含跨域图片，请移除外部图片后重试';
-            }
-        }
-        showNotification(errorMsg, 'error');
+        try { printWindow.close(); } catch (_) { }
+        showNotification('PDF 导出失败，请重试', 'error');
     } finally {
         if (exportNode && exportNode.parentNode) {
             exportNode.parentNode.removeChild(exportNode);
@@ -2168,6 +2111,87 @@ function buildStandaloneHTML(exportNode, parts) {
     const body = `<body>\n${node.outerHTML}\n</body>\n</html>`;
 
     return `${head}\n${body}`;
+}
+
+// 构建供浏览器原生打印的文档。原生打印会保留 DOM 文字与 SVG，避免整页栅格化。
+function buildPrintablePDFHTML(exportNode, parts, dimensions) {
+    const { localCss, katexCss } = parts || {};
+    const width = Math.max(1, Math.ceil(dimensions && dimensions.width || 1));
+    const height = Math.max(1, Math.ceil(dimensions && dimensions.height || 1));
+    const widthMm = (width * 25.4 / 96).toFixed(3);
+    const heightMm = (height * 25.4 / 96).toFixed(3);
+    const title = `${document.title || 'Madopic'} PDF`;
+    const cssBlocks = [];
+
+    for (const cssPart of [localCss, katexCss]) {
+        if (cssPart && cssPart.inline) {
+            cssBlocks.push(`<style>\n${absolutizeCssUrls(cssPart.inline, cssPart.href)}\n</style>`);
+        } else if (cssPart && cssPart.href) {
+            cssBlocks.push(`<link rel="stylesheet" href="${escapeHtml(cssPart.href)}">`);
+        }
+    }
+
+    cssBlocks.push(`<style>
+@page{size:${widthMm}mm ${heightMm}mm;margin:0;}
+html,body{margin:0!important;padding:0!important;width:${width}px!important;height:${height}px!important;background:transparent!important;overflow:hidden!important;}
+body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+#madopic-export-poster{position:relative!important;top:0!important;left:0!important;margin:0!important;display:block!important;transform:none!important;width:${width}px!important;height:${height}px!important;box-sizing:border-box!important;}
+@media print{html,body{width:${widthMm}mm!important;height:${heightMm}mm!important;}#madopic-export-poster{break-inside:avoid;page-break-inside:avoid;}}
+</style>`);
+
+    const node = exportNode.cloneNode(true);
+    const body = `<body>\n${node.outerHTML}\n</body>`;
+    return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>${escapeHtml(title)}</title>
+${cssBlocks.join('\n')}
+</head>
+${body}
+</html>`;
+}
+
+// 内联远程 CSS 时修正相对的字体/图片 URL，确保打印窗口能加载 KaTeX 字体等资源。
+function absolutizeCssUrls(css, stylesheetUrl) {
+    if (!css || !stylesheetUrl) return css || '';
+    return String(css).replace(/url\(\s*(['"]?)(?!data:|blob:|https?:|\/\/|#)([^)'"\s]+)\1\s*\)/gi, (match, quote, url) => {
+        try {
+            return `url("${new URL(url, stylesheetUrl).href}")`;
+        } catch (_) {
+            return match;
+        }
+    });
+}
+
+async function waitForPrintableWindow(printWindow) {
+    const doc = printWindow.document;
+    if (doc.readyState !== 'complete') {
+        await Promise.race([
+            new Promise(resolve => printWindow.addEventListener('load', resolve, { once: true })),
+            new Promise(resolve => setTimeout(resolve, 10000))
+        ]);
+    }
+
+    if (doc.fonts && doc.fonts.ready) {
+        try { await doc.fonts.ready; } catch (_) { }
+    }
+
+    const images = Array.from(doc.images || []);
+    await Promise.race([
+        Promise.all(images.map(img => img.complete
+            ? Promise.resolve()
+            : new Promise(resolve => {
+                img.addEventListener('load', resolve, { once: true });
+                img.addEventListener('error', resolve, { once: true });
+            }))),
+        new Promise(resolve => setTimeout(resolve, 10000))
+    ]);
+
+    await new Promise(resolve => printWindow.requestAnimationFrame(() => {
+        printWindow.requestAnimationFrame(resolve);
+    }));
 }
 
 function escapeHtml(str) {
