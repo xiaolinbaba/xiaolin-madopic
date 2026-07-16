@@ -21,7 +21,7 @@ assert.match(
 );
 assert.match(
   index,
-  /<script src="script\.js\?v=20260716-1"><\/script>/,
+  /<script src="script\.js\?v=20260716-2"><\/script>/,
   'the application script cache key must be updated with this release',
 );
 
@@ -89,17 +89,15 @@ assert.ok(
 );
 assert.ok(!script.includes('closeCustomPanel()'), 'Escape should call the existing panel close function');
 
-assert.ok(
-  !script.includes("pdf.addImage(imgData, 'PNG'"),
-  'PDF export must not rasterize the whole poster into one image',
+assert.match(
+  script,
+  /async function exportEditablePDF[\s\S]*?await pdf\.html\(textNode/,
+  'PDF export must render editable text through jsPDF',
 );
 assert.match(
   script,
-  /function buildPrintablePDFHTML[\s\S]*?@page\{size:/,
-  'PDF export must build a native printable document with an exact page size',
+  /pdf\.save\(`madopic-\$\{getFormattedTimestamp\(\)\}\.pdf`\)/,
+  'PDF export must download directly without a print dialog',
 );
-assert.match(
-  script,
-  /printWindow\.print\(\)/,
-  'PDF export must use native browser printing so text remains selectable',
-);
+assert.ok(!script.includes('printWindow.print()'), 'PDF export must not open the browser print dialog');
+assert.match(index, /connect-src[^;]*https:\/\/raw\.githubusercontent\.com/, 'CSP must allow the PDF font request');

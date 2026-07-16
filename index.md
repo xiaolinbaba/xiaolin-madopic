@@ -44,7 +44,7 @@ Madopic 是一个静态前端项目，主要使用原生 HTML、CSS 和 JavaScri
 
 - marked.js 用于 Markdown 解析。
 - html2canvas 用于图片导出。
-- 浏览器原生打印用于 PDF 导出，保留可选择和编辑的正文文字。
+- jsPDF 用于直接下载 PDF，正文使用可选择和编辑的真实文本对象。
 - KaTeX 和 mhchem 用于数学、化学公式渲染。
 - Mermaid 用于图表渲染。
 - Apache ECharts 用于数据可视化。

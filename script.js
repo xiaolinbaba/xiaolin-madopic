@@ -75,6 +75,10 @@ async function loadScript(src) {
         loadedScripts.add(src);
         return;
     }
+    if (src.includes('jspdf') && window.jspdf && window.jspdf.jsPDF) {
+        loadedScripts.add(src);
+        return;
+    }
     return new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = src;
@@ -87,14 +91,15 @@ async function loadScript(src) {
     });
 }
 
-/**
- * 确保导出所需的库已加载
- */
-async function ensureExportLibsLoaded() {
-    const libs = [
-        'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'
-    ];
-    await Promise.all(libs.map(loadScript));
+async function ensureCanvasExportLibLoaded() {
+    await loadScript('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
+}
+
+async function ensurePdfExportLibsLoaded() {
+    await Promise.all([
+        loadScript('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'),
+        loadScript('https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js')
+    ]);
 }
 
 /**
@@ -1802,7 +1807,7 @@ async function exportToPNG() {
         showNotification('正在生成图片...', 'info');
 
         // 懒加载导出所需的库
-        await ensureExportLibsLoaded();
+        await ensureCanvasExportLibLoaded();
 
         exportNode = await createExactExportNode();
 
@@ -1889,27 +1894,12 @@ async function exportToPNG() {
 
 async function exportToPDF() {
     let exportNode = null;
-    // 必须在第一个 await 之前打开窗口，否则浏览器会把它当作异步弹窗拦截。
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-        showNotification('无法打开 PDF 导出窗口，请允许本站弹出窗口后重试', 'error');
-        return;
-    }
-
-    printWindow.document.write('<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><title>正在准备 PDF...</title></head><body style="font-family:system-ui,sans-serif;padding:32px;color:#374151">正在准备可编辑 PDF...</body></html>');
-    printWindow.document.close();
-
     try {
-        showNotification('正在准备可编辑 PDF...', 'info');
-
-        const cssFetchPromise = Promise.all([
-            fetchCssBySelector('link[href*="style.css"]'),
-            fetchCssBySelector('link[rel="stylesheet"][href*="katex"]')
-        ]);
+        showNotification('正在生成可编辑 PDF...', 'info');
+        await ensurePdfExportLibsLoaded();
 
         exportNode = await createExactExportNode();
 
-        // 预处理图片，并将 Canvas 图表替换为可打印的静态图片。
         try {
             await prepareImagesForExport(exportNode);
         } catch (_) {
@@ -1917,39 +1907,191 @@ async function exportToPDF() {
         }
         await replaceEChartsWithImages(exportNode);
 
-        // 等待字体与一帧渲染
         if (document.fonts && document.fonts.ready) {
             try { await document.fonts.ready; } catch (_) { }
         }
         await new Promise(r => requestAnimationFrame(r));
 
-        const rect = exportNode.getBoundingClientRect();
-        const targetWidth = Math.ceil(rect.width);
-        const targetHeight = Math.ceil(rect.height);
-        const [localCss, katexCss] = await cssFetchPromise;
-        const html = buildPrintablePDFHTML(exportNode, { localCss, katexCss }, {
-            width: targetWidth,
-            height: targetHeight
-        });
-
-        printWindow.document.open();
-        printWindow.document.write(html);
-        printWindow.document.close();
-        await waitForPrintableWindow(printWindow);
-
-        printWindow.addEventListener('afterprint', () => printWindow.close(), { once: true });
-        printWindow.focus();
-        printWindow.print();
-        showNotification('请在打印面板中选择“另存为 PDF”；文字可选择和编辑', 'success');
+        try {
+            await exportEditablePDF(exportNode);
+            showNotification('可编辑 PDF 导出成功！', 'success');
+        } catch (editableError) {
+            console.warn('可编辑 PDF 生成失败，回退为图片 PDF:', editableError);
+            await exportRasterPDF(exportNode);
+            showNotification('可编辑 PDF 生成失败，已自动导出兼容图片 PDF', 'warning');
+        }
     } catch (error) {
         console.error('PDF 导出失败:', error);
-        try { printWindow.close(); } catch (_) { }
         showNotification('PDF 导出失败，请重试', 'error');
     } finally {
         if (exportNode && exportNode.parentNode) {
             exportNode.parentNode.removeChild(exportNode);
         }
     }
+}
+
+const PDF_EDITABLE_FONT_URL = 'https://raw.githubusercontent.com/lxgw/LxgwWenKaiGB/main/fonts/TTF/LXGWWenKaiGB-Regular.ttf';
+let editablePdfFontPromise = null;
+
+async function loadEditablePdfFont() {
+    if (!editablePdfFontPromise) {
+        editablePdfFontPromise = fetch(PDF_EDITABLE_FONT_URL, { cache: 'force-cache' })
+            .then(response => {
+                if (!response.ok) throw new Error(`中文字体加载失败（${response.status}）`);
+                return response.arrayBuffer();
+            })
+            .then(arrayBufferToBase64)
+            .catch(error => {
+                editablePdfFontPromise = null;
+                throw error;
+            });
+    }
+    return editablePdfFontPromise;
+}
+
+function arrayBufferToBase64(arrayBuffer) {
+    const bytes = new Uint8Array(arrayBuffer);
+    const chunks = [];
+    const chunkSize = 32768;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+        chunks.push(String.fromCharCode.apply(null, bytes.subarray(offset, offset + chunkSize)));
+    }
+    return btoa(chunks.join(''));
+}
+
+function setPdfExportPosition(node) {
+    Object.assign(node.style, {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        margin: '0',
+        transform: 'none'
+    });
+}
+
+function preparePdfBackgroundNode(sourceNode) {
+    const node = sourceNode.cloneNode(true);
+    setPdfExportPosition(node);
+    node.querySelectorAll('*').forEach(element => {
+        // 公式与图表保留为视觉底图；普通正文会由 PDF 文本层重新绘制。
+        if (!element.closest('.katex, .mermaid-container, .echarts-container')) {
+            element.style.setProperty('color', 'transparent', 'important');
+            element.style.setProperty('text-shadow', 'none', 'important');
+        }
+    });
+    return node;
+}
+
+function preparePdfTextNode(sourceNode) {
+    const node = sourceNode.cloneNode(true);
+    setPdfExportPosition(node);
+    node.style.setProperty('background', 'transparent', 'important');
+    node.style.setProperty('box-shadow', 'none', 'important');
+    node.style.fontFamily = 'LXGWWenKaiGB';
+
+    node.querySelectorAll('*').forEach(element => {
+        element.style.setProperty('background', 'transparent', 'important');
+        element.style.setProperty('box-shadow', 'none', 'important');
+        element.style.setProperty('border-color', 'transparent', 'important');
+        element.style.setProperty('outline', 'none', 'important');
+
+        const isRasterVisual = element.matches('img, svg, canvas, video, iframe')
+            || element.closest('.katex, .mermaid-container, .echarts-container');
+        if (isRasterVisual) {
+            element.style.setProperty('visibility', 'hidden', 'important');
+        } else {
+            element.style.setProperty('font-family', 'LXGWWenKaiGB', 'important');
+        }
+    });
+    return node;
+}
+
+async function exportEditablePDF(sourceNode) {
+    const fontBase64Promise = loadEditablePdfFont();
+    const rect = sourceNode.getBoundingClientRect();
+    const width = Math.ceil(rect.width);
+    const height = Math.ceil(rect.height);
+
+    const backgroundNode = preparePdfBackgroundNode(sourceNode);
+    document.body.appendChild(backgroundNode);
+    let backgroundCanvas;
+    try {
+        backgroundCanvas = await html2canvas(backgroundNode, {
+            backgroundColor: null,
+            scale: 1,
+            useCORS: true,
+            allowTaint: false,
+            logging: false,
+            width,
+            height,
+            windowWidth: width,
+            windowHeight: height
+        });
+    } finally {
+        backgroundNode.remove();
+    }
+
+    const textNode = preparePdfTextNode(sourceNode);
+    document.body.appendChild(textNode);
+    try {
+        const fontBase64 = await fontBase64Promise;
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+            orientation: width > height ? 'landscape' : 'portrait',
+            unit: 'px',
+            format: [width, height],
+            hotfixes: ['px_scaling'],
+            compress: true,
+            putOnlyUsedFonts: true
+        });
+
+        pdf.addImage(backgroundCanvas.toDataURL('image/png'), 'PNG', 0, 0, width, height, undefined, 'FAST');
+        pdf.addFileToVFS('LXGWWenKaiGB-Regular.ttf', fontBase64);
+        pdf.addFont('LXGWWenKaiGB-Regular.ttf', 'LXGWWenKaiGB', 'normal');
+        pdf.addFont('LXGWWenKaiGB-Regular.ttf', 'LXGWWenKaiGB', 'bold');
+        pdf.setFont('LXGWWenKaiGB', 'normal');
+
+        await pdf.html(textNode, {
+            x: 0,
+            y: 0,
+            width,
+            windowWidth: width,
+            autoPaging: false,
+            html2canvas: {
+                backgroundColor: null,
+                scale: 1,
+                useCORS: true,
+                allowTaint: false,
+                logging: false
+            }
+        });
+
+        pdf.save(`madopic-${getFormattedTimestamp()}.pdf`);
+    } finally {
+        textNode.remove();
+    }
+}
+
+async function exportRasterPDF(exportNode) {
+    const rect = exportNode.getBoundingClientRect();
+    const width = Math.ceil(rect.width);
+    const height = Math.ceil(rect.height);
+    const canvas = await renderWithFallbackScales(
+        exportNode,
+        width,
+        height,
+        getExportScaleCandidates(EXPORT_SCALE)
+    );
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({
+        orientation: width > height ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [width, height],
+        hotfixes: ['px_scaling'],
+        compress: true
+    });
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, width, height, undefined, 'FAST');
+    pdf.save(`madopic-${getFormattedTimestamp()}.pdf`);
 }
 
 // 导出为独立可打开的 HTML 文件
@@ -2111,87 +2253,6 @@ function buildStandaloneHTML(exportNode, parts) {
     const body = `<body>\n${node.outerHTML}\n</body>\n</html>`;
 
     return `${head}\n${body}`;
-}
-
-// 构建供浏览器原生打印的文档。原生打印会保留 DOM 文字与 SVG，避免整页栅格化。
-function buildPrintablePDFHTML(exportNode, parts, dimensions) {
-    const { localCss, katexCss } = parts || {};
-    const width = Math.max(1, Math.ceil(dimensions && dimensions.width || 1));
-    const height = Math.max(1, Math.ceil(dimensions && dimensions.height || 1));
-    const widthMm = (width * 25.4 / 96).toFixed(3);
-    const heightMm = (height * 25.4 / 96).toFixed(3);
-    const title = `${document.title || 'Madopic'} PDF`;
-    const cssBlocks = [];
-
-    for (const cssPart of [localCss, katexCss]) {
-        if (cssPart && cssPart.inline) {
-            cssBlocks.push(`<style>\n${absolutizeCssUrls(cssPart.inline, cssPart.href)}\n</style>`);
-        } else if (cssPart && cssPart.href) {
-            cssBlocks.push(`<link rel="stylesheet" href="${escapeHtml(cssPart.href)}">`);
-        }
-    }
-
-    cssBlocks.push(`<style>
-@page{size:${widthMm}mm ${heightMm}mm;margin:0;}
-html,body{margin:0!important;padding:0!important;width:${width}px!important;height:${height}px!important;background:transparent!important;overflow:hidden!important;}
-body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
-#madopic-export-poster{position:relative!important;top:0!important;left:0!important;margin:0!important;display:block!important;transform:none!important;width:${width}px!important;height:${height}px!important;box-sizing:border-box!important;}
-@media print{html,body{width:${widthMm}mm!important;height:${heightMm}mm!important;}#madopic-export-poster{break-inside:avoid;page-break-inside:avoid;}}
-</style>`);
-
-    const node = exportNode.cloneNode(true);
-    const body = `<body>\n${node.outerHTML}\n</body>`;
-    return `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>${escapeHtml(title)}</title>
-${cssBlocks.join('\n')}
-</head>
-${body}
-</html>`;
-}
-
-// 内联远程 CSS 时修正相对的字体/图片 URL，确保打印窗口能加载 KaTeX 字体等资源。
-function absolutizeCssUrls(css, stylesheetUrl) {
-    if (!css || !stylesheetUrl) return css || '';
-    return String(css).replace(/url\(\s*(['"]?)(?!data:|blob:|https?:|\/\/|#)([^)'"\s]+)\1\s*\)/gi, (match, quote, url) => {
-        try {
-            return `url("${new URL(url, stylesheetUrl).href}")`;
-        } catch (_) {
-            return match;
-        }
-    });
-}
-
-async function waitForPrintableWindow(printWindow) {
-    const doc = printWindow.document;
-    if (doc.readyState !== 'complete') {
-        await Promise.race([
-            new Promise(resolve => printWindow.addEventListener('load', resolve, { once: true })),
-            new Promise(resolve => setTimeout(resolve, 10000))
-        ]);
-    }
-
-    if (doc.fonts && doc.fonts.ready) {
-        try { await doc.fonts.ready; } catch (_) { }
-    }
-
-    const images = Array.from(doc.images || []);
-    await Promise.race([
-        Promise.all(images.map(img => img.complete
-            ? Promise.resolve()
-            : new Promise(resolve => {
-                img.addEventListener('load', resolve, { once: true });
-                img.addEventListener('error', resolve, { once: true });
-            }))),
-        new Promise(resolve => setTimeout(resolve, 10000))
-    ]);
-
-    await new Promise(resolve => printWindow.requestAnimationFrame(() => {
-        printWindow.requestAnimationFrame(resolve);
-    }));
 }
 
 function escapeHtml(str) {

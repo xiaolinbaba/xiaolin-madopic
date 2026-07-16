@@ -12,7 +12,7 @@
     <meta name="robots" content="index, follow">
     <meta name="theme-color" content="#6366f1">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://umami.thus.chat; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; font-src 'self' data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; connect-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://umami.thus.chat https://images.weserv.nl; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'; upgrade-insecure-requests">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://umami.thus.chat; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; font-src 'self' data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; connect-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://umami.thus.chat https://images.weserv.nl https://raw.githubusercontent.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'; upgrade-insecure-requests">
     <link rel="canonical" href="https://madopic.thus.chat/">
     <link rel="alternate" type="text/markdown" href="https://madopic.thus.chat/index.md">
     <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260119">
@@ -34,7 +34,7 @@
     <!-- Prism.js 代码高亮 CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked@18.0.6/lib/marked.umd.js"></script>
-    <!-- html2canvas 仅在 PNG 导出时懒加载；PDF 使用浏览器原生打印以保留可编辑文字 -->
+    <!-- html2canvas 与 jsPDF 在导出时懒加载；PDF 正文使用真实文本对象 -->
     <!-- KaTeX JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
@@ -347,7 +347,7 @@
         <div class="overlay" id="overlay"></div>
     </div>
 
-    <script src="script.js?v=20260716-1"></script>
+    <script src="script.js?v=20260716-2"></script>
     <noscript>Madopic 是由 XIAOLIN AI LAB 出品的 Markdown to picture 在线工具，可将 Markdown 内容制作成图片海报、社交媒体长图、知识卡片、技术文档图和公式图表海报。</noscript>
 </body>
 
