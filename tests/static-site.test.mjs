@@ -9,6 +9,16 @@ const index = read('index.html');
 const script = read('script.js');
 const style = read('style.css');
 
+for (const dependency of ['dompurify@3.4.16', 'katex@0.18.2', 'mermaid@10.9.8', 'echarts@6.1.0', 'prismjs@1.30.0']) {
+  assert.ok(index.includes(dependency), `${dependency} must use the audited security version`);
+}
+for (const tag of index.matchAll(/<(?:script|link)[^>]*(?:src|href)="https:\/\/(?:cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com)[^>]+>/g)) {
+  assert.match(tag[0], /integrity="sha384-[A-Za-z0-9+/=]+"/, 'pinned CDN assets must verify integrity');
+  assert.match(tag[0], /crossorigin="anonymous"/, 'CDN integrity checks must use anonymous CORS');
+  if (tag[0].startsWith('<script')) assert.match(tag[0], /\bdefer\b/, 'application dependencies must not block HTML parsing');
+}
+assert.ok(index.includes('echarts@6.1.0/theme/v5.js'), 'chart upgrades must preserve the original theme');
+
 assert.match(
   index,
   /https:\/\/cdn\.jsdelivr\.net\/npm\/marked@\d+\.\d+\.\d+\/lib\/marked\.umd\.js/,
@@ -21,13 +31,13 @@ assert.match(
 );
 assert.match(
   index,
-  /<script src="script\.js\?v=20260716-2"><\/script>/,
+  /<script defer src="script\.js\?v=20261006-1"><\/script>/,
   'the application script cache key must be updated with this release',
 );
 
 assert.match(
   index,
-  /<link rel="stylesheet" href="style\.css\?v=20260715-2">/,
+  /<link rel="stylesheet" href="style\.css\?v=20261006-1">/,
   'the stylesheet cache key must be updated with this release',
 );
 

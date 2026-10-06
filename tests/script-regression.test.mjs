@@ -212,7 +212,7 @@ assert.equal(
 assert.match(source, /const ImagePersistence\s*=\s*\{/, 'an IndexedDB persistence adapter must exist');
 assert.match(
   source,
-  /await\s+ImagePersistence\.loadAll\(\)[\s\S]*?restoreDraft\(\)/,
+  /await\s+ImagePersistence\.loadAll\(references\)[\s\S]*?restoreDraft\(\)/,
   'persisted images must load before the draft is restored',
 );
 
@@ -237,3 +237,60 @@ assert.equal(
   '1734px',
   'PYQ height must be recalculated after width changes',
 );
+
+for (const url of ['javascript:alert(1)', 'java\nscript:alert(1)', 'vbscript:msgbox(1)', 'data:text/html,bad']) {
+  assert.equal(run(`isSafeUrl(${JSON.stringify(url)})`), false, `${url} must not be a clickable URL`);
+}
+for (const url of ['https://example.com', '/docs', '#section', 'mailto:hello@example.com']) {
+  assert.equal(run(`isSafeUrl(${JSON.stringify(url)})`), true, `${url} must remain supported`);
+}
+assert.equal(run('isSafeUrl("data:image/png;base64,AAAA", "image")'), true);
+assert.equal(run('isSafeUrl("data:text/html,bad", "image")'), false);
+assert.equal(
+  run('sanitizeHTML("<img src=x onerror=alert(1)>")'),
+  '&lt;img src=x onerror=alert(1)&gt;',
+  'missing sanitizer must fall back to escaped text',
+);
+
+context.localStorage.getItem = (key) => key === 'madopic_draft' ? '' : null;
+run(`markdownInput.value = 'Default content'; restoreDraft();`);
+assert.equal(run('markdownInput.value'), '', 'a saved empty draft must survive refresh');
+
+context.localStorage.getItem = (key) => key === 'madopic_settings'
+  ? JSON.stringify({fontSize: 1e100, padding: -1e100, width: 1e100}) : null;
+run('restoreDraft()');
+assert.equal(run('currentFontSize'), 22);
+assert.equal(run('currentPadding'), 8);
+assert.equal(run('currentWidth'), 800, 'corrupt settings must not request unbounded export dimensions');
+
+const appendedScripts = [];
+documentStub.head = { appendChild(script) { appendedScripts.push(script); } };
+const firstLoad = run('loadScript("https://example.com/test.js")');
+const secondLoad = run('loadScript("https://example.com/test.js")');
+assert.equal(appendedScripts.length, 1, 'concurrent library requests must share one script tag');
+appendedScripts[0].onload();
+await Promise.all([firstLoad, secondLoad]);
+await run('loadScript("https://example.com/test.js")');
+assert.equal(appendedScripts.length, 1, 'loaded libraries must not be downloaded again');
+
+const failedLoad = run('loadScript("https://example.com/retry.js")');
+appendedScripts[1].onerror();
+await assert.rejects(failedLoad, /Unable to load script/);
+const retryLoad = run('loadScript("https://example.com/retry.js")');
+assert.equal(appendedScripts.length, 3, 'failed library loads must be retryable');
+appendedScripts[2].onload();
+await retryLoad;
+
+context.cornerReads = [];
+const opaqueResult = run(`trimTransparentEdges({
+  width: 4000, height: 6000,
+  getContext() {
+    return { getImageData(x, y, width, height) {
+      cornerReads.push({ x, y, width, height });
+      return { data: [0, 0, 0, 255] };
+    } };
+  }
+})`);
+assert.equal(opaqueResult, null, 'opaque poster edges must remain intact');
+assert.equal(context.cornerReads.length, 4);
+assert.ok(context.cornerReads.every(read => read.width === 1 && read.height === 1), 'opaque posters must not allocate a full RGBA pixel buffer');

@@ -5,42 +5,7 @@ const AppState = {
     fontSize: 18,
     padding: 24,
     width: 640,
-    mode: 'free', // 'free' | 'xhs' | 'pyq'
-    fixedHeights: { xhs: null, pyq: null }
-};
-
-// 状态管理器
-const StateManager = {
-    state: AppState,
-    listeners: [],
-
-    get(key) {
-        return this.state[key];
-    },
-
-    set(key, value) {
-        const oldValue = this.state[key];
-        this.state[key] = value;
-        this.notify(key, value, oldValue);
-    },
-
-    subscribe(listener) {
-        this.listeners.push(listener);
-        return () => {
-            const index = this.listeners.indexOf(listener);
-            if (index > -1) this.listeners.splice(index, 1);
-        };
-    },
-
-    notify(key, value, oldValue) {
-        this.listeners.forEach(fn => {
-            try {
-                fn(key, value, oldValue);
-            } catch (e) {
-                console.error('状态监听器错误:', e);
-            }
-        });
-    }
+    mode: 'free' // 'free' | 'xhs' | 'pyq'
 };
 
 // 为了兼容性，保留旧的全局变量作为访问器
@@ -50,7 +15,6 @@ let currentFontSize = AppState.fontSize;
 let currentPadding = AppState.padding;
 let currentWidth = AppState.width;
 let currentMode = AppState.mode;
-let fixedHeights = AppState.fixedHeights;
 
 // ===== 工具函数 =====
 
@@ -68,7 +32,12 @@ function debounce(fn, delay = 300) {
 /**
  * 动态加载脚本（懒加载 CDN）
  */
+const SCRIPT_INTEGRITY = {
+    "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js": "sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H",
+    "https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js": "sha384-qovJwSBbRDPP5cEjCp8S0UP66wrvnjaa60XMOGzTNanrThcrGfXfnZkvgY8N1KT3"
+};
 const loadedScripts = new Set();
+const loadingScripts = new Map();
 async function loadScript(src) {
     if (loadedScripts.has(src)) return;
     if (src.includes('html2canvas') && typeof html2canvas !== 'undefined') {
@@ -79,16 +48,36 @@ async function loadScript(src) {
         loadedScripts.add(src);
         return;
     }
-    return new Promise((resolve, reject) => {
+    if (loadingScripts.has(src)) return loadingScripts.get(src);
+    const promise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = src;
+        if (SCRIPT_INTEGRITY[src]) {
+            script.integrity = SCRIPT_INTEGRITY[src];
+            script.crossOrigin = "anonymous";
+        }
+        const timer = setTimeout(() => {
+            script.onload = null;
+            script.onerror = null;
+            script.remove();
+            reject(new Error(`Script loading timed out: ${src}`));
+        }, 15000);
         script.onload = () => {
+            clearTimeout(timer);
             loadedScripts.add(src);
             resolve();
         };
-        script.onerror = reject;
+        script.onerror = () => {
+            clearTimeout(timer);
+            script.remove();
+            reject(new Error(`Unable to load script: ${src}`));
+        };
         document.head.appendChild(script);
+    }).finally(() => {
+        loadingScripts.delete(src);
     });
+    loadingScripts.set(src, promise);
+    return promise;
 }
 
 async function ensureCanvasExportLibLoaded() {
@@ -100,23 +89,6 @@ async function ensurePdfExportLibsLoaded() {
         loadScript('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'),
         loadScript('https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js')
     ]);
-}
-
-/**
- * CORS 图片代理：将跨域图片 URL 转换为代理 URL
- */
-function corsProxyUrl(url) {
-    // 跳过 data: 和 blob: URL
-    if (!url || url.startsWith('data:') || url.startsWith('blob:')) return url;
-    // 跳过同源图片
-    try {
-        const imgUrl = new URL(url, window.location.href);
-        if (imgUrl.origin === window.location.origin) return url;
-    } catch (e) {
-        return url;
-    }
-    // 使用 weserv.nl 代理（免费、支持 CORS）
-    return `https://images.weserv.nl/?url=${encodeURIComponent(url)}`;
 }
 
 function isSafeUrl(value, type = 'link') {
@@ -145,15 +117,14 @@ function isSafeUrl(value, type = 'link') {
  * HTML 清理函数：移除潜在的 XSS 攻击代码
  */
 function sanitizeHTML(html) {
-    // 创建临时 DOM 容器
+    // 使用经过安全审计的解析器处理 SVG/MathML、变异 XSS 和危险 URL。
+    // CDN 不可用时按纯文本显示，避免回退到不完整的手写过滤器。
+    if (typeof DOMPurify === 'undefined') return escapeHtml(html);
     const temp = document.createElement('div');
-    temp.innerHTML = html;
-
-    // 移除危险的标签
-    const dangerousTags = ['script', 'iframe', 'object', 'embed', 'link', 'meta', 'base', 'form', 'input', 'button', 'textarea'];
-    dangerousTags.forEach(tag => {
-        const elements = temp.querySelectorAll(tag);
-        elements.forEach(el => el.remove());
+    temp.innerHTML = DOMPurify.sanitize(html, {
+        FORBID_TAGS: ['style', 'script', 'iframe', 'object', 'embed', 'link', 'meta', 'base', 'form', 'input', 'button', 'textarea'],
+        FORBID_ATTR: ['style', 'srcdoc', 'formaction', 'data-dependencies', 'data-src', 'data-jsonp'],
+        ALLOW_DATA_ATTR: true
     });
 
     // 移除危险的属性（on* 事件处理器）
@@ -434,6 +405,11 @@ class MathRenderer {
 const mathRenderer = new MathRenderer();
 
 // ===== 图表渲染器 =====
+let renderIdCounter = 0;
+function nextRenderId(prefix) {
+    return `${prefix}-${Date.now().toString(36)}-${++renderIdCounter}`;
+}
+
 class DiagramRenderer {
     constructor() {
         this.isMermaidLoaded = false;
@@ -526,7 +502,7 @@ class DiagramRenderer {
         let diagramCounter = 0;
         return markdown.replace(/```mermaid\s*\n([\s\S]*?)\n```/g, (match, code) => {
             const diagramId = `mermaid-diagram-${++diagramCounter}`;
-            return `<div class="mermaid-container" data-diagram-id="${diagramId}" data-diagram-code="${encodeURIComponent(code.trim())}"></div>`;
+            return `\n\n<div class="mermaid-container" data-diagram-id="${diagramId}" data-diagram-code="${encodeURIComponent(code.trim())}"></div>\n\n`;
         });
     }
 
@@ -539,11 +515,14 @@ class DiagramRenderer {
         const diagramContainers = container.querySelectorAll('.mermaid-container');
 
         for (const diagramContainer of diagramContainers) {
-            const diagramId = diagramContainer.getAttribute('data-diagram-id');
-            const diagramCode = decodeURIComponent(diagramContainer.getAttribute('data-diagram-code'));
-
-            if (diagramId && diagramCode) {
-                await this.renderDiagram(diagramContainer, diagramCode, diagramId);
+            try {
+                const diagramCode = decodeURIComponent(diagramContainer.getAttribute('data-diagram-code') || '');
+                if (diagramCode) {
+                    // 不信任 Markdown 中的 DOM ID，也避免预览和并发导出相互覆盖。
+                    await this.renderDiagram(diagramContainer, diagramCode, nextRenderId('mermaid'));
+                }
+            } catch (error) {
+                this.showDiagramError(diagramContainer, error.message);
             }
         }
     }
@@ -582,7 +561,7 @@ class EChartsRenderer {
         }
     }
 
-    async renderEChart(element, chartConfig, chartId) {
+    async renderEChart(element, chartConfig, chartId, forExport = false) {
         if (!this.isEChartsLoaded) {
             console.warn('ECharts not available for chart rendering');
             this.showEChartError(element, 'ECharts library not loaded');
@@ -611,25 +590,25 @@ class EChartsRenderer {
             } else {
                 config = chartConfig;
             }
+            if (forExport) config.animation = false;
 
             // 初始化图表
-            const chart = echarts.init(chartContainer);
+            sanitizeEChartsConfig(config);
+            const chart = echarts.init(chartContainer, 'v5');
+            const instance = { chart, resizeObserver: null, container: chartContainer };
+            // setOption 或 observer 创建失败也必须能销毁已创建的图表。
+            this.instances.set(element, instance);
             chart.setOption(config);
 
             // 响应式调整
             const resizeObserver = new ResizeObserver(() => {
                 chart.resize();
             });
+            instance.resizeObserver = resizeObserver;
             resizeObserver.observe(chartContainer);
 
-            // 使用 WeakMap 存储图表实例
-            this.instances.set(element, {
-                chart,
-                resizeObserver,
-                container: chartContainer
-            });
-
         } catch (error) {
+            this.destroy(element);
             console.error('ECharts rendering error:', error);
             this.showEChartError(element, error.message);
         }
@@ -660,18 +639,20 @@ class EChartsRenderer {
         // 处理 ```echarts 代码块
         return markdown.replace(/```echarts\s*\n([\s\S]*?)\n```/g, (match, code) => {
             const chartId = 'echarts-' + Math.random().toString(36).substr(2, 9);
-            return `<div class="echarts-container" data-echarts-id="${chartId}" data-echarts-config="${encodeURIComponent(code.trim())}"></div>`;
+            return `\n\n<div class="echarts-container" data-echarts-id="${chartId}" data-echarts-config="${encodeURIComponent(code.trim())}"></div>\n\n`;
         });
     }
 
-    async renderECharts(container) {
+    async renderECharts(container, forExport = false) {
         const echartsElements = container.querySelectorAll('.echarts-container');
 
         for (const element of echartsElements) {
-            const chartId = element.getAttribute('data-echarts-id');
-            const configData = decodeURIComponent(element.getAttribute('data-echarts-config'));
-
-            await this.renderEChart(element, configData, chartId);
+            try {
+                const configData = decodeURIComponent(element.getAttribute('data-echarts-config') || '');
+                await this.renderEChart(element, configData, nextRenderId('echarts'), forExport);
+            } catch (error) {
+                this.showEChartError(element, error.message);
+            }
         }
     }
 
@@ -715,6 +696,31 @@ class EChartsRenderer {
 // 创建全局 ECharts 渲染器实例
 const echartsRenderer = new EChartsRenderer();
 
+// JSON 图表仍含少数 HTML/URL 配置入口，需与 Markdown 使用相同的边界。
+function sanitizeEChartsConfig(config) {
+    const pending = [config];
+    const visited = new WeakSet();
+    while (pending.length) {
+        const item = pending.pop();
+        if (!item || typeof item !== 'object' || visited.has(item)) continue;
+        visited.add(item);
+        for (const key of Object.keys(item)) {
+            const value = item[key];
+            if (['__proto__', 'constructor', 'prototype'].includes(key)) {
+                delete item[key];
+            } else if ((key === 'link' || key === 'sublink') && typeof value === 'string' && !isSafeUrl(value)) {
+                delete item[key];
+            } else if (key === 'tooltip' && value && typeof value.formatter === 'string') {
+                value.formatter = sanitizeHTML(value.formatter);
+            } else if (key === 'dataView' && value && typeof value === 'object') {
+                if (typeof value.title === 'string') value.title = escapeHtml(value.title);
+                if (Array.isArray(value.lang)) value.lang = value.lang.map(escapeHtml);
+            }
+            if (value && typeof value === 'object') pending.push(value);
+        }
+    }
+}
+
 // ===== 卡片渲染器 =====
 class CardRenderer {
     constructor() {
@@ -727,7 +733,7 @@ class CardRenderer {
         return markdown.replace(/:::card(?:\s+(info|success|warning|error))?\s*\n([\s\S]*?)\n:::/g, (match, type, content) => {
             const cardType = type || 'default';
             const cardId = 'card-' + Math.random().toString(36).substr(2, 9);
-            return `<div class="card-container" data-card-id="${cardId}" data-card-type="${cardType}" data-card-content="${encodeURIComponent(content.trim())}"></div>`;
+            return `\n\n<div class="card-container" data-card-id="${cardId}" data-card-type="${cardType}" data-card-content="${encodeURIComponent(content.trim())}"></div>\n\n`;
         });
     }
 
@@ -736,12 +742,15 @@ class CardRenderer {
         const cardContainers = container.querySelectorAll('.card-container');
 
         for (const cardContainer of cardContainers) {
-            const cardId = cardContainer.getAttribute('data-card-id');
-            const cardType = cardContainer.getAttribute('data-card-type');
-            const cardContent = decodeURIComponent(cardContainer.getAttribute('data-card-content'));
-
-            if (cardId && cardContent) {
-                await this.renderCard(cardContainer, cardContent, cardType);
+            try {
+                const cardId = cardContainer.getAttribute('data-card-id');
+                const cardType = cardContainer.getAttribute('data-card-type');
+                const cardContent = decodeURIComponent(cardContainer.getAttribute('data-card-content') || '');
+                if (cardId && cardContent) {
+                    await this.renderCard(cardContainer, cardContent, cardType);
+                }
+            } catch (error) {
+                await this.renderCard(cardContainer, '卡片内容解析失败', 'error');
             }
         }
     }
@@ -749,13 +758,14 @@ class CardRenderer {
     // 渲染单个卡片
     async renderCard(element, content, type) {
         try {
+            type = ['info', 'success', 'warning', 'error'].includes(type) ? type : 'default';
             // 清除之前的内容
             element.innerHTML = '';
 
             // 解析卡片内容的Markdown
             let htmlContent = '';
             try {
-                htmlContent = marked.parse(content);
+                htmlContent = marked.parse(replaceImageDataForPreview(content));
                 htmlContent = sanitizeHTML(htmlContent);
             } catch (err) {
                 console.error('卡片内容Markdown解析失败: ', err);
@@ -878,14 +888,25 @@ const ImagePersistence = {
         return this.databasePromise;
     },
 
-    async loadAll() {
+    async loadAll(references = null) {
         const database = await this.open();
         const records = await new Promise((resolve, reject) => {
-            const request = database.transaction(this.storeName, 'readonly')
-                .objectStore(this.storeName)
-                .getAll();
-            request.onsuccess = () => resolve(request.result || []);
-            request.onerror = () => reject(request.error || new Error('Unable to load saved images'));
+            const transaction = database.transaction(this.storeName, 'readonly');
+            const store = transaction.objectStore(this.storeName);
+            const loaded = [];
+            if (references === null) {
+                const request = store.getAll();
+                request.onsuccess = () => loaded.push(...(request.result || []));
+            } else {
+                // 只将当前草稿引用的图片载入内存，历史记录仍保留在数据库。
+                for (const reference of new Set(references)) {
+                    const request = store.get(reference);
+                    request.onsuccess = () => { if (request.result) loaded.push(request.result); };
+                }
+            }
+            transaction.oncomplete = () => resolve(loaded);
+            transaction.onerror = () => reject(transaction.error || new Error('Unable to load saved images'));
+            transaction.onabort = () => reject(transaction.error || new Error('Image loading was aborted'));
         });
 
         records.forEach((record) => {
@@ -908,50 +929,11 @@ const ImagePersistence = {
     }
 };
 
-// 图片缓存管理器
-const ImageCache = {
-    cache: new Map(),
-    maxSize: 50, // 最多缓存 50 张图片
-
-    set(url, data) {
-        // 如果缓存已满，删除最早的项
-        if (this.cache.size >= this.maxSize) {
-            const firstKey = this.cache.keys().next().value;
-            this.cache.delete(firstKey);
-        }
-        this.cache.set(url, {
-            data,
-            timestamp: Date.now()
-        });
-    },
-
-    get(url) {
-        const item = this.cache.get(url);
-        return item ? item.data : null;
-    },
-
-    has(url) {
-        return this.cache.has(url);
-    },
-
-    clear() {
-        this.cache.clear();
-    },
-
-    // 清理超过指定时间的缓存（默认 30 分钟）
-    cleanup(maxAge = 30 * 60 * 1000) {
-        const now = Date.now();
-        for (const [key, value] of this.cache.entries()) {
-            if (now - value.timestamp > maxAge) {
-                this.cache.delete(key);
-            }
-        }
-    }
-};
-
 // 预览渲染状态
 let hasInitialPreviewRendered = false;
 let lastRenderedMarkdown = '';
+let pendingPreviewMarkdown = null;
+let previewRenderPromise = null;
 
 // 初始化应用
 async function bootstrapApp() {
@@ -1086,6 +1068,7 @@ function setMode(mode) {
     if (group) {
         group.querySelectorAll('button[data-mode]').forEach(btn => {
             btn.classList.toggle('active', btn.getAttribute('data-mode') === mode);
+            btn.setAttribute('aria-pressed', String(btn.getAttribute('data-mode') === mode));
         });
     }
     // 预览区域视觉反馈（仅预览容器外层，不改导出逻辑）
@@ -1248,13 +1231,30 @@ function handleToolbarAction(action) {
 }
 
 // 更新预览
-async function updatePreview() {
-    const markdownText = markdownInput.value.trim();
-    // 同步行号（在去抖预览之外也保证立即更新）
-    updateLineNumbers();
-
+function updatePreview() {
     // 自动保存草稿
     autoSave(markdownInput.value);
+    pendingPreviewMarkdown = markdownInput.value.trim();
+    if (!previewRenderPromise) {
+        // 同一时间只运行一条管线；快速输入合并为最新内容。
+        previewRenderPromise = Promise.resolve().then(async () => {
+            while (pendingPreviewMarkdown !== null) {
+                const markdownText = pendingPreviewMarkdown;
+                pendingPreviewMarkdown = null;
+                if (hasInitialPreviewRendered && markdownText === lastRenderedMarkdown) continue;
+                await renderPreview(markdownText);
+            }
+        }).finally(() => {
+            previewRenderPromise = null;
+        });
+    }
+    return previewRenderPromise;
+}
+
+async function renderPreview(markdownText) {
+    updateLineNumbers();
+    // WeakMap 不会释放 ECharts 内部注册表和 ResizeObserver，需主动销毁。
+    echartsRenderer.destroyAll(posterContent);
 
     // 检查是否为空内容
     if (!markdownText) {
@@ -1277,12 +1277,6 @@ async function updatePreview() {
     // 替换简化的base64为完整版本进行预览
     processedMarkdown = replaceImageDataForPreview(processedMarkdown);
 
-    // 仅在已完成至少一次渲染后，且内容确实未变化时跳过
-    if (hasInitialPreviewRendered && processedMarkdown === lastRenderedMarkdown) {
-        return;
-    }
-    lastRenderedMarkdown = processedMarkdown;
-
     let htmlContent = '';
     try {
         htmlContent = marked.parse(processedMarkdown);
@@ -1302,12 +1296,15 @@ async function updatePreview() {
 
     // 渲染图表
     await diagramRenderer.renderDiagrams(posterContent);
+    if (pendingPreviewMarkdown !== null && pendingPreviewMarkdown !== markdownText) return;
 
     // 渲染 ECharts 图表
     await echartsRenderer.renderECharts(posterContent);
+    if (pendingPreviewMarkdown !== null && pendingPreviewMarkdown !== markdownText) return;
 
     // 渲染卡片
     await cardRenderer.renderCards(posterContent);
+    if (pendingPreviewMarkdown !== null && pendingPreviewMarkdown !== markdownText) return;
 
     // 代码高亮（Prism.js）
     if (typeof Prism !== 'undefined') {
@@ -1327,10 +1324,8 @@ async function updatePreview() {
     } else {
         posterContent.style.animation = '';
     }
+    lastRenderedMarkdown = markdownText;
 }
-
-// 防抖版本的 updatePreview
-const debouncedUpdatePreview = debounce(updatePreview, 300);
 
 // ===== 行号逻辑 =====
 function updateLineNumbers() {
@@ -1381,29 +1376,6 @@ function showEmptyPreview() {
     hasInitialPreviewRendered = false;
 }
 
-// 为图片元素设置跨域与防盗链相关属性
-function applyImageAttributes(root) {
-    const imgs = root.querySelectorAll('img');
-    imgs.forEach((img) => {
-        try {
-            if (!img.getAttribute('crossorigin')) {
-                img.setAttribute('crossorigin', 'anonymous');
-            }
-            if (!img.getAttribute('referrerpolicy')) {
-                img.setAttribute('referrerpolicy', 'no-referrer');
-            }
-            if (!img.getAttribute('decoding')) {
-                img.setAttribute('decoding', 'sync');
-            }
-            if (!img.getAttribute('loading')) {
-                img.setAttribute('loading', 'eager');
-            }
-        } catch (_) {
-            // 忽略单个图片设置失败
-        }
-    });
-}
-
 // 缩放控制
 function zoomIn() {
     if (currentZoom < 150) {
@@ -1432,46 +1404,81 @@ function updateZoomDisplay() {
 }
 
 // 背景设置面板
-function openBackgroundPanel() {
-    backgroundPanel.classList.add('active');
+let activeSettingsPanel = null;
+let settingsPanelTrigger = null;
+let settingsPanelBackground = [];
+
+function openSettingsPanel(panel, triggerId) {
+    if (activeSettingsPanel) closeAllPanels();
+    settingsPanelTrigger = document.activeElement;
+    settingsPanelBackground = Array.from(document.querySelectorAll('.toolbar, .main-content'))
+        .map(element => ({ element, inert: element.inert }));
+    settingsPanelBackground.forEach(({ element }) => { element.inert = true; });
+    activeSettingsPanel = panel;
+    panel.inert = false;
+    panel.setAttribute('aria-hidden', 'false');
+    panel.classList.add('active');
+    document.getElementById(triggerId).setAttribute('aria-expanded', 'true');
     overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
+    panel.querySelector('button, input, select, [tabindex="0"]')?.focus();
+}
+
+function openBackgroundPanel() {
+    openSettingsPanel(backgroundPanel, 'backgroundBtn');
 }
 
 function closeBackgroundPanel() {
-    backgroundPanel.classList.remove('active');
-    overlay.classList.remove('active');
-    document.body.style.overflow = '';
+    closeAllPanels();
 }
 
 // 文字布局设置面板
 function openLayoutPanel() {
-    layoutPanel.classList.add('active');
-    overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
+    openSettingsPanel(layoutPanel, 'layoutBtn');
 }
 
 function closeLayoutPanel() {
-    layoutPanel.classList.remove('active');
-    overlay.classList.remove('active');
-    document.body.style.overflow = '';
+    closeAllPanels();
 }
 
 // 关闭所有面板
 function closeAllPanels() {
-    backgroundPanel.classList.remove('active');
-    layoutPanel.classList.remove('active');
+    const trigger = settingsPanelTrigger;
+    activeSettingsPanel = null;
+    settingsPanelTrigger = null;
+    settingsPanelBackground.forEach(({ element, inert }) => { element.inert = inert; });
+    settingsPanelBackground = [];
+    if (trigger) {
+        const focusTarget = trigger.getClientRects().length ? trigger : document.getElementById('hamburgerBtn');
+        focusTarget?.focus();
+    }
+    [backgroundPanel, layoutPanel].forEach(panel => {
+        panel.classList.remove('active');
+        panel.setAttribute('aria-hidden', 'true');
+        panel.inert = true;
+    });
+    ['backgroundBtn', 'layoutBtn'].forEach(id => document.getElementById(id).setAttribute('aria-expanded', 'false'));
     overlay.classList.remove('active');
     document.body.style.overflow = '';
 }
 
 function setupBackgroundPresets() {
     document.querySelectorAll('.bg-preset').forEach(preset => {
+        preset.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                preset.click();
+            }
+        });
         preset.addEventListener('click', function () {
             // 移除其他选中状态
-            document.querySelectorAll('.bg-preset').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.bg-preset').forEach(p => {
+                p.classList.remove('active');
+                p.setAttribute('aria-pressed', 'false');
+            });
             // 添加选中状态
             this.classList.add('active');
+            this.setAttribute('aria-pressed', 'true');
             currentBackground = this.getAttribute('data-bg');
         });
     });
@@ -1485,7 +1492,10 @@ function setupColorInputs() {
     [colorStart, colorEnd, gradientDirection].forEach(input => {
         input.addEventListener('change', function () {
             // 取消预设选择
-            document.querySelectorAll('.bg-preset').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.bg-preset').forEach(p => {
+                p.classList.remove('active');
+                p.setAttribute('aria-pressed', 'false');
+            });
             currentBackground = 'custom';
         });
     });
@@ -1602,6 +1612,8 @@ function setupSliders() {
  * 返回被追加到 body 的节点，调用方负责移除。
  */
 async function createExactExportNode() {
+    // 输入防抖尚未触发或图表仍在渲染时，导出也必须包含最新内容。
+    await updatePreview();
     const clone = markdownPoster.cloneNode(true);
     clone.id = 'madopic-export-poster';
     const mpComputed = getComputedStyle(markdownPoster);
@@ -1664,36 +1676,36 @@ async function createExactExportNode() {
     }
     document.body.appendChild(clone);
 
-    // 为导出节点重新渲染数学公式
-    const cloneContent = clone.querySelector('.poster-content');
-    if (cloneContent) {
-        mathRenderer.renderMath(cloneContent);
+    try {
+        // 为导出节点重新渲染数学公式
+        const cloneContent = clone.querySelector('.poster-content');
+        if (cloneContent) {
+            mathRenderer.renderMath(cloneContent);
 
-        // 为导出节点的Mermaid图表生成新的唯一ID，避免与原始预览区冲突
-        const mermaidContainers = cloneContent.querySelectorAll('.mermaid-container');
-        mermaidContainers.forEach((container, index) => {
-            const timestamp = Date.now();
-            const newId = `export-mermaid-${timestamp}-${index}`;
-            container.setAttribute('data-diagram-id', newId);
-        });
+            // 为导出节点重新渲染图表
+            await diagramRenderer.renderDiagrams(cloneContent);
 
-        // 为导出节点重新渲染图表
-        await diagramRenderer.renderDiagrams(cloneContent);
+            // 为导出节点重新渲染ECharts图表
+            await echartsRenderer.renderECharts(cloneContent, true);
 
-        // 为导出节点重新渲染ECharts图表
-        await echartsRenderer.renderECharts(cloneContent);
+            // 为导出节点重新渲染卡片
+            await cardRenderer.renderCards(cloneContent);
 
-        // 为导出节点重新渲染卡片
-        await cardRenderer.renderCards(cloneContent);
+            // 再等待一帧确保DOM更新完成
+            await new Promise(resolve => requestAnimationFrame(resolve));
+        }
 
-        // 额外等待确保所有渲染完成
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // 再等待一帧确保DOM更新完成
-        await new Promise(resolve => requestAnimationFrame(resolve));
+        return clone;
+    } catch (error) {
+        removeExportNode(clone);
+        throw error;
     }
+}
 
-    return clone;
+function removeExportNode(node) {
+    if (!node) return;
+    echartsRenderer.destroyAll(node);
+    node.remove();
 }
 
 /**
@@ -1710,7 +1722,9 @@ async function prepareImagesForExport(root) {
             // 若已完成加载则直接 resolve
             if (img.complete && img.naturalWidth > 0) return resolve();
             // 监听加载/失败
+            const timer = setTimeout(() => { clean(); resolve(); }, 3000);
             const clean = () => {
+                clearTimeout(timer);
                 img.removeEventListener('load', onLoad);
                 img.removeEventListener('error', onError);
             };
@@ -1754,10 +1768,7 @@ async function prepareImagesForExport(root) {
             resolve();
         }
     }));
-    await Promise.race([
-        Promise.allSettled(loadPromises),
-        new Promise((resolve) => setTimeout(resolve, 3000)) // 最多等待 3s，避免卡死
-    ]);
+    await Promise.allSettled(loadPromises);
 }
 
 /**
@@ -1780,7 +1791,9 @@ function tryProxyImage(img) {
 
             const onLoad = () => { cleanup(); resolve(); };
             const onError = () => { cleanup(); resolve(); };
+            const timer = setTimeout(() => { cleanup(); resolve(); }, 3000);
             const cleanup = () => {
+                clearTimeout(timer);
                 img.removeEventListener('load', onLoad);
                 img.removeEventListener('error', onError);
             };
@@ -1801,7 +1814,18 @@ function tryProxyImage(img) {
  * 导出为 PNG（通过克隆节点离屏渲染，保证与预览一致）。
  * 流程：等待字体 → 克隆节点 → 读取尺寸 → html2canvas 渲染 → 透明边缘裁剪 → 触发下载 → 清理。
  */
+let exportInProgress = false;
+function beginExport() {
+    if (exportInProgress) {
+        showNotification('正在导出，请稍候...', 'info');
+        return false;
+    }
+    exportInProgress = true;
+    return true;
+}
+
 async function exportToPNG() {
+    if (!beginExport()) return;
     let exportNode = null;
     try {
         showNotification('正在生成图片...', 'info');
@@ -1849,13 +1873,15 @@ async function exportToPNG() {
         }
         const outputCanvas = trimmedCanvas || canvas;
 
-        // 增强 toDataURL 错误处理
-        let dataUrl;
+        // 直接编码为 Blob，避免额外分配完整 Base64 字符串。
+        let blob;
         try {
-            dataUrl = outputCanvas.toDataURL('image/png', 1.0);
-        } catch (dataUrlError) {
-            console.error('toDataURL 失败:', dataUrlError);
-            if (dataUrlError.name === 'SecurityError') {
+            blob = await new Promise((resolve, reject) => {
+                outputCanvas.toBlob(result => result ? resolve(result) : reject(new Error('Unable to encode PNG')), 'image/png');
+            });
+        } catch (encodingError) {
+            console.error('PNG 编码失败:', encodingError);
+            if (encodingError.name === 'SecurityError') {
                 showNotification('导出失败：图片包含跨域资源，无法导出。请移除外部图片后重试。', 'error');
             } else {
                 showNotification('导出失败：无法生成图片数据。请尝试缩短内容。', 'error');
@@ -1863,12 +1889,7 @@ async function exportToPNG() {
             return;
         }
 
-        const link = document.createElement('a');
-        link.download = `madopic-${getFormattedTimestamp()}.png`;
-        link.href = dataUrl;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        downloadBlob(blob, 'png');
 
         showNotification('图片导出成功！', 'success');
     } catch (error) {
@@ -1886,13 +1907,13 @@ async function exportToPNG() {
         }
         showNotification(errorMsg, 'error');
     } finally {
-        if (exportNode && exportNode.parentNode) {
-            exportNode.parentNode.removeChild(exportNode);
-        }
+        removeExportNode(exportNode);
+        exportInProgress = false;
     }
 }
 
 async function exportToPDF() {
+    if (!beginExport()) return;
     let exportNode = null;
     try {
         showNotification('正在生成可编辑 PDF...', 'info');
@@ -1924,9 +1945,8 @@ async function exportToPDF() {
         console.error('PDF 导出失败:', error);
         showNotification('PDF 导出失败，请重试', 'error');
     } finally {
-        if (exportNode && exportNode.parentNode) {
-            exportNode.parentNode.removeChild(exportNode);
-        }
+        removeExportNode(exportNode);
+        exportInProgress = false;
     }
 }
 
@@ -1935,7 +1955,7 @@ let editablePdfFontPromise = null;
 
 async function loadEditablePdfFont() {
     if (!editablePdfFontPromise) {
-        editablePdfFontPromise = fetch(PDF_EDITABLE_FONT_URL, { cache: 'force-cache' })
+        editablePdfFontPromise = fetch(PDF_EDITABLE_FONT_URL, { cache: 'force-cache', signal: AbortSignal.timeout(20000) })
             .then(response => {
                 if (!response.ok) throw new Error(`中文字体加载失败（${response.status}）`);
                 return response.arrayBuffer();
@@ -2007,7 +2027,8 @@ function preparePdfTextNode(sourceNode) {
 }
 
 async function exportEditablePDF(sourceNode) {
-    const fontBase64Promise = loadEditablePdfFont();
+    // 立即等待字体失败，避免截图期间产生未处理的 Promise rejection。
+    const fontBase64 = await loadEditablePdfFont();
     const rect = sourceNode.getBoundingClientRect();
     const width = Math.ceil(rect.width);
     const height = Math.ceil(rect.height);
@@ -2034,7 +2055,6 @@ async function exportEditablePDF(sourceNode) {
     const textNode = preparePdfTextNode(sourceNode);
     document.body.appendChild(textNode);
     try {
-        const fontBase64 = await fontBase64Promise;
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({
             orientation: width > height ? 'landscape' : 'portrait',
@@ -2096,6 +2116,7 @@ async function exportRasterPDF(exportNode) {
 
 // 导出为独立可打开的 HTML 文件
 async function exportToHTML() {
+    if (!beginExport()) return;
     let exportNode = null;
     try {
         showNotification('正在生成 HTML...', 'info');
@@ -2120,23 +2141,30 @@ async function exportToHTML() {
 
         // 触发下载
         const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `madopic-${getFormattedTimestamp()}.html`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        downloadBlob(blob, 'html');
 
         showNotification('HTML 导出成功！', 'success');
     } catch (error) {
         console.error('HTML 导出失败:', error);
         showNotification('HTML 导出失败，请重试', 'error');
     } finally {
-        if (exportNode && exportNode.parentNode) {
-            exportNode.parentNode.removeChild(exportNode);
-        }
+        removeExportNode(exportNode);
+        exportInProgress = false;
+    }
+}
+
+function downloadBlob(blob, extension) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    try {
+        link.href = url;
+        link.download = `madopic-${getFormattedTimestamp()}.${extension}`;
+        document.body.appendChild(link);
+        link.click();
+    } finally {
+        link.remove();
+        // 给浏览器启动下载的机会后释放 URL。
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 }
 
@@ -2146,17 +2174,22 @@ async function fetchCssBySelector(selector) {
         const link = document.querySelector(selector);
         if (!link || !link.href) return { inline: '', href: '' };
         const href = link.href;
-        const css = await fetchTextSafe(href);
-        return { inline: css || '', href };
+        const css = await fetchTextSafe(href, link.integrity);
+        // 内联后相对字体路径的基准已变化，改成原样式表的绝对 URL。
+        const inline = (css || '').replace(/url\(\s*(["']?)(.*?)\1\s*\)/g, (match, quote, value) => {
+            if (!value || value.startsWith('#') || value.startsWith('data:')) return match;
+            try { return `url("${new URL(value, href).href}")`; } catch (_) { return match; }
+        });
+        return { inline, href };
     } catch (_) {
         return { inline: '', href: '' };
     }
 }
 
 // 安全获取文本，失败返回空字符串
-async function fetchTextSafe(url) {
+async function fetchTextSafe(url, integrity = '') {
     try {
-        const res = await fetch(url, { mode: 'cors' });
+        const res = await fetch(url, { mode: 'cors', integrity, signal: AbortSignal.timeout(15000) });
         if (!res.ok) return '';
         return await res.text();
     } catch (_) {
@@ -2169,11 +2202,11 @@ async function replaceEChartsWithImages(root) {
     const containers = root.querySelectorAll('.echarts-container');
     for (const container of containers) {
         try {
-            // chartContainer 是我们在渲染时创建的内部 div，实例挂在其属性上
-            const chartContainer = container.querySelector('div[id^="echarts-"]');
+            // 从渲染器获取真实实例，同时支持 Canvas 与 SVG 渲染模式。
+            const instance = echartsRenderer.instances.get(container);
             let dataUrl = '';
-            if (chartContainer && chartContainer._echartsInstance && typeof chartContainer._echartsInstance.getDataURL === 'function') {
-                dataUrl = chartContainer._echartsInstance.getDataURL({ type: 'png', pixelRatio: 1, backgroundColor: '#ffffff' });
+            if (instance && instance.chart) {
+                dataUrl = instance.chart.getDataURL({ type: 'png', pixelRatio: 1, backgroundColor: '#ffffff' });
             } else {
                 // 兜底：合并所有 canvas 层
                 const canvases = container.querySelectorAll('canvas');
@@ -2196,6 +2229,7 @@ async function replaceEChartsWithImages(root) {
                 img.style.width = '100%';
                 img.style.height = 'auto';
                 // 用静态图替换整个容器内容
+                echartsRenderer.destroy(container);
                 container.innerHTML = '';
                 container.appendChild(img);
             }
@@ -2215,19 +2249,19 @@ function buildStandaloneHTML(exportNode, parts) {
     if (localCss && localCss.inline) {
         cssBlocks.push(`<style>\n${localCss.inline}\n</style>`);
     } else if (localCss && localCss.href) {
-        cssBlocks.push(`<link rel="stylesheet" href="${localCss.href}">`);
+        cssBlocks.push(`<link rel="stylesheet" href="${escapeHtml(localCss.href)}">`);
     }
 
     if (katexCss && katexCss.inline) {
         cssBlocks.push(`<style>\n${katexCss.inline}\n</style>`);
     } else if (katexCss && katexCss.href) {
-        cssBlocks.push(`<link rel="stylesheet" href="${katexCss.href}">`);
+        cssBlocks.push(`<link rel="stylesheet" href="${escapeHtml(katexCss.href)}">`);
     }
 
     // 为导出页添加极简 reset，并强制覆盖离屏/滚动样式，确保可见与可滚动
     cssBlocks.push(`<style>\nhtml,body{margin:0;padding:0;background:#f3f4f6;}\nbody{overflow-y:auto !important;overflow-x:hidden;}\n#madopic-export-poster{position:relative !important;top:auto !important;left:auto !important;margin:40px auto !important;display:block !important;transform:none !important;height:auto !important;min-height:0 !important;overflow:visible !important;}\n#madopic-export-poster .poster-content{max-height:none !important;overflow:visible !important;}\n</style>`);
 
-    const head = `<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>${escapeHtml(title)}</title>\n${cssBlocks.join('\n')}\n</head>`;
+    const head = `<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="UTF-8">\n<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline' https:; img-src data: blob: https:; font-src data: https:; base-uri 'none'; form-action 'none'">\n<meta name="referrer" content="no-referrer">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>${escapeHtml(title)}</title>\n${cssBlocks.join('\n')}\n</head>`;
 
     // 克隆节点，清理离屏相关 inline 样式
     const node = exportNode.cloneNode(true);
@@ -2288,6 +2322,9 @@ async function renderWithFallbackScales(node, targetWidth, targetHeight, scales)
     let lastError = null;
     for (const scale of scales) {
         try {
+            if (Math.ceil(targetWidth * scale) > 32767 || Math.ceil(targetHeight * scale) > 32767) {
+                throw new Error('Canvas exceeds maximum dimensions at this scale');
+            }
             // eslint-disable-next-line no-await-in-loop
             const canvas = await html2canvas(node, {
                 backgroundColor: null,
@@ -2309,7 +2346,7 @@ async function renderWithFallbackScales(node, targetWidth, targetHeight, scales)
                         clonedTarget.style.setProperty('top', '0', 'important');
                         clonedTarget.style.setProperty('left', '0', 'important');
                         clonedTarget.style.setProperty('margin', '0', 'important');
-                        clonedTarget.style.setProperty('width', `${currentWidth}px`, 'important');
+                        clonedTarget.style.setProperty('width', `${targetWidth}px`, 'important');
                         clonedTarget.style.setProperty('padding', getComputedStyle(markdownPoster).padding, 'important');
                         clonedTarget.style.setProperty('box-sizing', 'border-box', 'important');
                     }
@@ -2356,6 +2393,7 @@ async function renderWithFallbackScales(node, targetWidth, targetHeight, scales)
                     clonedDoc.body.style.setProperty('padding', '0', 'important');
                 }
             });
+            if (!canvas.width || !canvas.height) throw new Error('Canvas rendering returned an empty image');
             if (scale !== scales[0]) {
                 showNotification(`显存不足，已自动降至 ${Math.round(scale * 100)}% 清晰度导出`, 'warning');
             }
@@ -2373,6 +2411,7 @@ function showNotification(message, type = 'info') {
     // 创建通知元素
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
+    notification.setAttribute('role', type === 'error' ? 'alert' : 'status');
     const content = document.createElement('div');
     content.className = 'notification-content';
     const icon = document.createElement('i');
@@ -2463,6 +2502,25 @@ function getNotificationColor(type) {
 // ===== 键盘快捷键 =====
 function setupKeyboardShortcuts() {
     document.addEventListener('keydown', function (e) {
+        if (activeSettingsPanel) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                closeAllPanels();
+            } else if (e.key === 'Tab') {
+                const focusable = Array.from(activeSettingsPanel.querySelectorAll('button, input, select, [tabindex="0"]'))
+                    .filter(element => !element.disabled);
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (e.shiftKey && (document.activeElement === first || !activeSettingsPanel.contains(document.activeElement))) {
+                    e.preventDefault();
+                    last?.focus();
+                } else if (!e.shiftKey && (document.activeElement === last || !activeSettingsPanel.contains(document.activeElement))) {
+                    e.preventDefault();
+                    first?.focus();
+                }
+            }
+            return;
+        }
         if (e.ctrlKey || e.metaKey) {
             switch (e.key) {
                 case 'b':
@@ -2980,14 +3038,12 @@ function storeImageData(shortBase64, fullBase64) {
 function replaceImageDataForPreview(content) {
     let result = content;
     imageDataStore.forEach((fullBase64, shortBase64) => {
-        result = result.replace(new RegExp(escapeRegExp(shortBase64), 'g'), fullBase64);
+        // 先跳过未引用的历史图片，避免为每张图片重复扫描并编译正则。
+        if (result.includes(shortBase64)) {
+            result = result.split(shortBase64).join(fullBase64);
+        }
     });
     return result;
-}
-
-// 转义正则表达式特殊字符
-function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // 生成格式化的时间戳字符串 (YYYYMMDDHHMMSS)
@@ -3038,6 +3094,9 @@ window.MadopicApp = {
 function trimTransparentEdges(sourceCanvas) {
     const ctx = sourceCanvas.getContext('2d');
     const { width, height } = sourceCanvas;
+    // 四角均有内容时，任何边都不能裁剪，无需复制整张高清画布。
+    if (width > 0 && height > 0 && [[0, 0], [width - 1, 0], [0, height - 1], [width - 1, height - 1]]
+        .every(([x, y]) => ctx.getImageData(x, y, 1, 1).data[3] !== 0)) return null;
     const imageData = ctx.getImageData(0, 0, width, height);
     const data = imageData.data;
 
@@ -3081,9 +3140,12 @@ function trimTransparentEdges(sourceCanvas) {
 
 // ===== 撤销/重做快捷键 =====
 document.addEventListener('keydown', (e) => {
+    if (activeSettingsPanel || (e.target !== markdownInput && e.target?.matches('input, textarea, [contenteditable="true"]'))) return;
     // Ctrl+Z 撤销
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
+        // 先记录尚未进入 500ms 防抖历史的输入，保证立即撤销也能重做。
+        undoRedoManager.push(markdownInput.value);
         const state = undoRedoManager.undo();
         if (state !== null && markdownInput) {
             undoRedoManager.isUndoRedo = true;
@@ -3189,10 +3251,19 @@ function setupHamburgerMenu() {
     const hamburgerBtn = document.getElementById('hamburgerBtn');
     const toolbarRight = document.getElementById('toolbarRight');
     if (!hamburgerBtn || !toolbarRight) return;
+    const mobileViewport = window.matchMedia('(max-width: 900px)');
+    const syncMenu = () => {
+        const expanded = toolbarRight.classList.contains('mobile-open');
+        const hidden = mobileViewport.matches && !expanded;
+        hamburgerBtn.setAttribute('aria-expanded', String(expanded));
+        toolbarRight.setAttribute('aria-hidden', String(hidden));
+        toolbarRight.inert = hidden;
+    };
 
     hamburgerBtn.addEventListener('click', () => {
         toolbarRight.classList.toggle('mobile-open');
         hamburgerBtn.classList.toggle('active');
+        syncMenu();
     });
 
     // 点击菜单项后自动关闭
@@ -3200,8 +3271,23 @@ function setupHamburgerMenu() {
         if (e.target.closest('.btn')) {
             toolbarRight.classList.remove('mobile-open');
             hamburgerBtn.classList.remove('active');
+            syncMenu();
         }
     });
+    toolbarRight.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && mobileViewport.matches) {
+            toolbarRight.classList.remove('mobile-open');
+            hamburgerBtn.classList.remove('active');
+            hamburgerBtn.focus();
+            syncMenu();
+        }
+    });
+    mobileViewport.addEventListener('change', () => {
+        toolbarRight.classList.remove('mobile-open');
+        hamburgerBtn.classList.remove('active');
+        syncMenu();
+    });
+    syncMenu();
 }
 
 // ===== 草稿恢复 =====
@@ -3210,10 +3296,10 @@ function restoreDraft() {
     const settings = loadSettings();
     let shouldRefreshPreview = false;
 
-    if (draft && markdownInput) {
+    if (draft !== null && markdownInput) {
         // 只有当草稿内容与默认内容不同时才恢复
         const defaultContent = markdownInput.value;
-        if (draft !== defaultContent && draft.trim().length > 0) {
+        if (draft !== defaultContent) {
             markdownInput.value = draft;
             undoRedoManager.push(draft);
             shouldRefreshPreview = true;
@@ -3229,7 +3315,7 @@ function restoreDraft() {
             }
         }
         if (Number.isFinite(settings.fontSize)) {
-            currentFontSize = settings.fontSize;
+            currentFontSize = Math.min(22, Math.max(14, settings.fontSize));
             const fontSizeSlider = document.getElementById('fontSizeSlider');
             const fontSizeValue = document.getElementById('fontSizeValue');
             if (fontSizeSlider) fontSizeSlider.value = currentFontSize;
@@ -3238,7 +3324,7 @@ function restoreDraft() {
             shouldRefreshPreview = true;
         }
         if (Number.isFinite(settings.padding)) {
-            currentPadding = settings.padding;
+            currentPadding = Math.min(60, Math.max(8, settings.padding));
             const paddingSlider = document.getElementById('paddingSlider');
             const paddingValue = document.getElementById('paddingValue');
             if (paddingSlider) paddingSlider.value = currentPadding;
@@ -3247,7 +3333,7 @@ function restoreDraft() {
             shouldRefreshPreview = true;
         }
         if (Number.isFinite(settings.width)) {
-            currentWidth = settings.width;
+            currentWidth = Math.min(800, Math.max(480, settings.width));
             const widthSlider = document.getElementById('widthSlider');
             const widthValue = document.getElementById('widthValue');
             if (widthSlider) widthSlider.value = currentWidth;
@@ -3271,7 +3357,8 @@ function restoreDraft() {
 async function initOptimizations() {
     // 先恢复本地图片映射，避免草稿首次渲染出现失效的短引用
     try {
-        await ImagePersistence.loadAll();
+        const references = (loadDraft() || '').match(/madopic-image:\/\/[A-Za-z0-9_-]+/g) || [];
+        await ImagePersistence.loadAll(references);
     } catch (error) {
         console.warn('本地图片存储不可用，将使用内存模式:', error);
     }

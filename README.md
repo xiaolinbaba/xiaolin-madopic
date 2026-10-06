@@ -173,3 +173,32 @@ Madopic 是一个功能丰富的 Markdown 可视化工具，集成了数学公�
 ---
 
 **Madopic 2.0** - 让你的知识更有画面感 🎨✨
+
+## 开发验证
+
+项目仍是无需构建的静态站点。使用 Node.js 22+ 可运行基础回归：
+
+```sh
+node --check script.js
+node --test tests/static-site.test.mjs tests/script-regression.test.mjs
+```
+
+完整浏览器回归使用 ego-browser。先用任意本地 HTTP 服务在 4173 端口打开项目，再运行：
+
+```sh
+ego-browser nodejs <<'EOF_BROWSER'
+const task = await taskSpace("Madopic regression");
+const page = task.page("p1");
+await page.goto("http://127.0.0.1:4173/");
+const { runBrowserRegression, runExportRegression } = await import(
+  "file://" + process.cwd() + "/tests/browser-regression.mjs"
+);
+await runBrowserRegression(page);
+await runExportRegression(page, "/private/tmp");
+await task.finish({ keep: [] });
+EOF_BROWSER
+```
+
+浏览器验证包括恶意内容过滤、现有模板、图表资源释放、连续编辑、弹窗焦点、移动菜单、本地图片恢复以及 PNG/HTML/可编辑 PDF 下载。导出测试文件写入临时目录。
+
+本轮问题与处理边界见 [2026-10-06 代码审核报告](docs/audits/2026-10-06-code-audit.md)。

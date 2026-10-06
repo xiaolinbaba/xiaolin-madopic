@@ -27,26 +27,29 @@
     <meta name="twitter:title" content="Madopic - Markdown to Picture">
     <meta name="twitter:description" content="Markdown 海报生成工具，支持社交媒体长图、数学公式、Mermaid、ECharts 和多格式导出。">
     <meta name="twitter:image" content="https://madopic.thus.chat/favicon.svg">
-    <link rel="stylesheet" href="style.css?v=20260715-2">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=20261006-1">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha384-3B6NwesSXE7YJlcLI9RpRqGf2p/EgVH8BgoKTaUrmKNDkHPStTQ3EyoYjCGXaOTS" crossorigin="anonymous" rel="stylesheet">
     <!-- KaTeX CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.18.2/dist/katex.min.css" integrity="sha384-qArEAQvOPs1o7K1iAybhs66g8nYTXVt4VLOQ3abu+OMLJyPNfaH4Wpko0X2epHJ+" crossorigin="anonymous">
     <!-- Prism.js 代码高亮 CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/marked@18.0.6/lib/marked.umd.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism-tomorrow.min.css" integrity="sha384-wFjoQjtV1y5jVHbt0p35Ui8aV8GVpEZkyF99OXWqP/eNJDU93D3Ugxkoyh6Y2I4A" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/dompurify@3.4.16/dist/purify.min.js" integrity="sha384-a7SzOxErzJ3ZpQz0zJ32d67dSitNzPcbfybc/ykU9KJhMgZkwqfSxlhhdJRS+XGL" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/marked@18.0.6/lib/marked.umd.js" integrity="sha384-uGn1eBC40GtuBgao0epc/cz9O4Lo8/flg/10SW+69UjLI5nP31iT4UPc65Xz10Le" crossorigin="anonymous"></script>
     <!-- html2canvas 与 jsPDF 在导出时懒加载；PDF 正文使用真实文本对象 -->
     <!-- KaTeX JavaScript -->
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.18.2/dist/katex.min.js" integrity="sha384-IHT6Yddb0KLCzZaxQ/so1j3xkJ8R6hOkCR06ma9NDHGn0Z4ClKcGtQ6qqsflRPxR" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.18.2/dist/contrib/auto-render.min.js" integrity="sha384-bjyGPfbij8/NDKJhSGZNP/khQVgtHUE5exjm4Ydllo42FwIgYsdLO2lXGmRBf5Mz" crossorigin="anonymous"></script>
     <!-- KaTeX mhchem extension for chemistry -->
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/mhchem.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.18.2/dist/contrib/mhchem.min.js" integrity="sha384-fB8BH//9nBzROkMUsu/Dr35jWHIbnKesUo9rW0hfEgw8mZGnkAyBAjKX9F98OVuo" crossorigin="anonymous"></script>
     <!-- Mermaid JavaScript -->
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mermaid@10.9.8/dist/mermaid.min.js" integrity="sha384-N3QqR/7q+xm3BGX+CBbNI8AUmRRqcsDzToy+0z1NLDI0QmTKW8zvwLvqulJgk3dP" crossorigin="anonymous"></script>
     <!-- ECharts JavaScript -->
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/echarts@6.1.0/dist/echarts.min.js" integrity="sha384-C2iskrW/uPW46KzOjrvJIQo4YkV8lkD+QS0CrDN18IIPIpT/g2USu8bTP3nvmIAD" crossorigin="anonymous"></script>
+    <!-- 保留 ECharts 5 的颜色、图例位置与默认尺寸 -->
+    <script defer src="https://cdn.jsdelivr.net/npm/echarts@6.1.0/theme/v5.js" integrity="sha384-CvWdppMqP7DIWe23AQvTWlDqp7nGMJoxKccK+LipzPVHKNxmJ90bYrEMLvF+9l3u" crossorigin="anonymous"></script>
     <!-- Prism.js 代码高亮 JS -->
-    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.min.js" integrity="sha384-Cn/s7dpCMIb2rgIjtCYcpcv3LPJjUciybJ5G/sGMK025lFiqdJ4pRgUEgIcolGuJ" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/plugins/autoloader/prism-autoloader.min.js" integrity="sha384-Uq05+JLko69eOiPr39ta9bh7kld5PKZoU+fF7g0EXTAriEollhZ+DrN8Q/Oi8J2Q" crossorigin="anonymous"></script>
     <script defer src="https://umami.thus.chat/script.js" data-website-id="3aea19d8-e893-455d-9e48-54ba56a2af8a"></script>
     <script type="application/ld+json">
     {
@@ -84,28 +87,28 @@
                 <span class="subtitle">Markdown to Picture 🎨✨</span>
             </div>
             <!-- 汉堡菜单按钮（移动端显示） -->
-            <button class="hamburger-btn" id="hamburgerBtn" title="菜单">
-                <i class="fas fa-bars"></i>
+            <button class="hamburger-btn" id="hamburgerBtn" title="菜单" aria-label="菜单" aria-controls="toolbarRight" aria-expanded="false">
+                <i aria-hidden="true" class="fas fa-bars"></i>
             </button>
             <div class="toolbar-right" id="toolbarRight">
                 <div class="mode-group" id="modeGroup" title="导出模式">
-                    <button class="btn btn-secondary btn-toggle active" id="modeFreeBtn" data-mode="free">
+                    <button class="btn btn-secondary btn-toggle active" id="modeFreeBtn" data-mode="free" aria-pressed="true">
                         <i class="fas fa-expand"></i>
                         <span>自由</span>
                     </button>
-                    <button class="btn btn-secondary btn-toggle" id="modeXhsBtn" data-mode="xhs">
+                    <button class="btn btn-secondary btn-toggle" id="modeXhsBtn" data-mode="xhs" aria-pressed="false">
                         <i class="fas fa-book"></i>
                         <span>小红书</span>
                     </button>
-                    <button class="btn btn-secondary btn-toggle" id="modePyqBtn" data-mode="pyq">
+                    <button class="btn btn-secondary btn-toggle" id="modePyqBtn" data-mode="pyq" aria-pressed="false">
                         <i class="fas fa-users"></i>
                         <span>朋友圈</span>
                     </button>
                 </div>
-                <button class="btn btn-secondary" id="backgroundBtn">
+                <button class="btn btn-secondary" id="backgroundBtn" aria-controls="backgroundPanel" aria-expanded="false" aria-haspopup="dialog">
                     <i class="fas fa-palette"></i> 背景设置
                 </button>
-                <button class="btn btn-secondary" id="layoutBtn">
+                <button class="btn btn-secondary" id="layoutBtn" aria-controls="layoutPanel" aria-expanded="false" aria-haspopup="dialog">
                     <i class="fas fa-text-height"></i> 文字布局
                 </button>
                 <button class="btn btn-primary" id="exportPngBtn">
@@ -117,7 +120,7 @@
                 <button class="btn btn-primary" id="exportHtmlBtn">
                     <i class="fas fa-file-code"></i> 导出HTML
                 </button>
-                <a href="https://github.com/xiaolinbaba/Madopic" target="_blank" rel="noopener noreferrer" class="github-link" title="查看GitHub源码">
+                <a href="https://github.com/xiaolinbaba/Madopic" target="_blank" rel="noopener noreferrer" class="github-link" title="查看GitHub源码" aria-label="查看 GitHub 源码">
                     <i class="fab fa-github"></i>
                 </a>
             </div>
@@ -130,61 +133,61 @@
                 <div class="panel-header">
                     <h3><i class="fab fa-markdown"></i> Markdown</h3>
                     <div class="editor-tools">
-                        <button class="tool-btn" data-action="bold" title="粗体">
+                        <button class="tool-btn" data-action="bold" title="粗体" aria-label="粗体">
                             <i class="fas fa-bold"></i>
                         </button>
-                        <button class="tool-btn" data-action="italic" title="斜体">
+                        <button class="tool-btn" data-action="italic" title="斜体" aria-label="斜体">
                             <i class="fas fa-italic"></i>
                         </button>
-                        <button class="tool-btn" data-action="heading" title="标题">
+                        <button class="tool-btn" data-action="heading" title="标题" aria-label="标题">
                             <i class="fas fa-heading"></i>
                         </button>
-                        <button class="tool-btn" data-action="list" title="列表">
+                        <button class="tool-btn" data-action="list" title="列表" aria-label="列表">
                             <i class="fas fa-list"></i>
                         </button>
-                        <button class="tool-btn" data-action="link" title="链接">
+                        <button class="tool-btn" data-action="link" title="链接" aria-label="链接">
                             <i class="fas fa-link"></i>
                         </button>
-                        <button class="tool-btn" data-action="image" title="插入图片">
+                        <button class="tool-btn" data-action="image" title="插入图片" aria-label="插入图片">
                             <i class="fas fa-image"></i>
                         </button>
                         <div class="tool-separator"></div>
-                        <button class="tool-btn" data-action="flowchart" title="插入流程图">
+                        <button class="tool-btn" data-action="flowchart" title="插入流程图" aria-label="插入流程图">
                             <i class="fas fa-project-diagram"></i>
                         </button>
-                        <button class="tool-btn" data-action="sequence" title="插入序列图">
+                        <button class="tool-btn" data-action="sequence" title="插入序列图" aria-label="插入序列图">
                             <i class="fas fa-exchange-alt"></i>
                         </button>
-                        <button class="tool-btn" data-action="gantt" title="插入甘特图">
+                        <button class="tool-btn" data-action="gantt" title="插入甘特图" aria-label="插入甘特图">
                             <i class="fas fa-chart-gantt"></i>
                         </button>
-                        <button class="tool-btn" data-action="pie" title="插入饼图">
+                        <button class="tool-btn" data-action="pie" title="插入饼图" aria-label="插入饼图">
                             <i class="fas fa-chart-pie"></i>
                         </button>
-                        <button class="tool-btn" data-action="echarts" title="插入ECharts图表">
+                        <button class="tool-btn" data-action="echarts" title="插入ECharts图表" aria-label="插入ECharts图表">
                             <i class="fas fa-chart-bar"></i>
                         </button>
                         <div class="tool-separator"></div>
-                        <button class="tool-btn" data-action="einstein" title="插入质能守恒公式">
+                        <button class="tool-btn" data-action="einstein" title="插入质能守恒公式" aria-label="插入质能守恒公式">
                             <i class="fas fa-atom"></i>
                         </button>
-                        <button class="tool-btn" data-action="math" title="插入数学公式">
+                        <button class="tool-btn" data-action="math" title="插入数学公式" aria-label="插入数学公式">
                             <i class="fas fa-square-root-alt"></i>
                         </button>
-                        <button class="tool-btn" data-action="physics" title="插入物理公式">
+                        <button class="tool-btn" data-action="physics" title="插入物理公式" aria-label="插入物理公式">
                             <i class="fas fa-flask"></i>
                         </button>
-                        <button class="tool-btn" data-action="chemistry" title="插入化学公式">
+                        <button class="tool-btn" data-action="chemistry" title="插入化学公式" aria-label="插入化学公式">
                             <i class="fas fa-vial"></i>
                         </button>
                         <div class="tool-separator"></div>
-                        <button class="tool-btn" data-action="card" title="插入卡片">
+                        <button class="tool-btn" data-action="card" title="插入卡片" aria-label="插入卡片">
                             <i class="fas fa-id-card"></i>
                         </button>
-                        <button class="tool-btn" data-action="empty-line" title="加入空行">
+                        <button class="tool-btn" data-action="empty-line" title="加入空行" aria-label="加入空行">
                             <i class="fas fa-paragraph"></i>
                         </button>
-                        <button class="tool-btn" data-action="clear" title="清空">
+                        <button class="tool-btn" data-action="clear" title="清空" aria-label="清空">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -193,7 +196,7 @@
                 <input type="file" id="imageInput" accept="image/*" style="display: none;">
                 <div class="editor-with-lines">
                     <pre class="line-numbers" aria-hidden="true"></pre>
-                    <textarea id="markdownInput" placeholder="在这里输入你的 Markdown 内容..."># Madopic
+                    <textarea id="markdownInput" aria-label="Markdown 编辑器" placeholder="在这里输入你的 Markdown 内容..."># Madopic
 
 > Madopic，精美的 Markdown 转图片工具 🎨
 
@@ -227,11 +230,11 @@
                 <div class="panel-header">
                     <h3><i class="fas fa-eye"></i> 实时预览</h3>
                     <div class="preview-tools">
-                        <button class="tool-btn" id="zoomOut" title="缩小">
+                        <button class="tool-btn" id="zoomOut" title="缩小" aria-label="缩小">
                             <i class="fas fa-search-minus"></i>
                         </button>
                         <span class="zoom-level">100%</span>
-                        <button class="tool-btn" id="zoomIn" title="放大">
+                        <button class="tool-btn" id="zoomIn" title="放大" aria-label="放大">
                             <i class="fas fa-search-plus"></i>
                         </button>
                     </div>
@@ -249,7 +252,7 @@
         </div>
 
         <!-- 背景设置面板 -->
-        <div class="background-panel" id="backgroundPanel">
+        <div class="background-panel" id="backgroundPanel" role="dialog" aria-modal="true" aria-label="背景设置" aria-hidden="true" inert>
             <div class="panel-content">
                 <h3><i class="fas fa-palette"></i> 背景设置</h3>
 
@@ -257,14 +260,14 @@
                     <div class="option-group">
                         <label>预设背景：</label>
                         <div class="preset-backgrounds">
-                            <div class="bg-preset active" data-bg="gradient1"></div>
-                            <div class="bg-preset" data-bg="gradient2"></div>
-                            <div class="bg-preset" data-bg="gradient3"></div>
-                            <div class="bg-preset" data-bg="gradient4"></div>
-                            <div class="bg-preset" data-bg="gradient5"></div>
-                            <div class="bg-preset" data-bg="gradient6"></div>
-                            <div class="bg-preset" data-bg="gradient7"></div>
-                            <div class="bg-preset" data-bg="gradient8"></div>
+                            <div class="bg-preset active" data-bg="gradient1" role="button" tabindex="0" aria-label="渐变背景 1" aria-pressed="true"></div>
+                            <div class="bg-preset" data-bg="gradient2" role="button" tabindex="0" aria-label="渐变背景 2" aria-pressed="false"></div>
+                            <div class="bg-preset" data-bg="gradient3" role="button" tabindex="0" aria-label="渐变背景 3" aria-pressed="false"></div>
+                            <div class="bg-preset" data-bg="gradient4" role="button" tabindex="0" aria-label="渐变背景 4" aria-pressed="false"></div>
+                            <div class="bg-preset" data-bg="gradient5" role="button" tabindex="0" aria-label="渐变背景 5" aria-pressed="false"></div>
+                            <div class="bg-preset" data-bg="gradient6" role="button" tabindex="0" aria-label="渐变背景 6" aria-pressed="false"></div>
+                            <div class="bg-preset" data-bg="gradient7" role="button" tabindex="0" aria-label="渐变背景 7" aria-pressed="false"></div>
+                            <div class="bg-preset" data-bg="gradient8" role="button" tabindex="0" aria-label="渐变背景 8" aria-pressed="false"></div>
                         </div>
                     </div>
                     <div class="option-group">
@@ -272,17 +275,17 @@
                         <div class="color-inputs">
                             <div class="color-input-group">
                                 <label>起始色：</label>
-                                <input type="color" id="colorStart" value="#A755F7">
+                                <input type="color" id="colorStart" aria-label="起始色" value="#A755F7">
                             </div>
                             <div class="color-input-group">
                                 <label>结束色：</label>
-                                <input type="color" id="colorEnd" value="#6C23AA">
+                                <input type="color" id="colorEnd" aria-label="结束色" value="#6C23AA">
                             </div>
                         </div>
                     </div>
                     <div class="option-group">
                         <label>渐变方向：</label>
-                        <select id="gradientDirection">
+                        <select id="gradientDirection" aria-label="渐变方向">
                             <option value="135deg">左上到右下</option>
                             <option value="45deg">左下到右上</option>
                             <option value="0deg">左到右</option>
@@ -301,7 +304,7 @@
         </div>
 
         <!-- 文字布局设置面板 -->
-        <div class="background-panel" id="layoutPanel">
+        <div class="background-panel" id="layoutPanel" role="dialog" aria-modal="true" aria-label="文字布局设置" aria-hidden="true" inert>
             <div class="panel-content">
                 <h3><i class="fas fa-text-height"></i> 文字布局设置</h3>
 
@@ -311,7 +314,7 @@
                     <div class="option-group">
                         <label>文字大小：</label>
                         <div class="slider-group">
-                            <input type="range" id="fontSizeSlider" min="14" max="22" value="18" step="0.5">
+                            <input type="range" id="fontSizeSlider" aria-label="文字大小" min="14" max="22" value="18" step="0.5">
                             <span class="slider-value" id="fontSizeValue">18px</span>
                         </div>
                     </div>
@@ -323,14 +326,14 @@
                     <div class="option-group">
                         <label>整体宽度：</label>
                         <div class="slider-group">
-                            <input type="range" id="widthSlider" min="480" max="800" value="640" step="20">
+                            <input type="range" id="widthSlider" aria-label="整体宽度" min="480" max="800" value="640" step="20">
                             <span class="slider-value" id="widthValue">640px</span>
                         </div>
                     </div>
                     <div class="option-group">
                         <label>卡片边距：</label>
                         <div class="slider-group">
-                            <input type="range" id="paddingSlider" min="8" max="60" value="24" step="2">
+                            <input type="range" id="paddingSlider" aria-label="卡片边距" min="8" max="60" value="24" step="2">
                             <span class="slider-value" id="paddingValue">24px</span>
                         </div>
                     </div>
@@ -347,7 +350,7 @@
         <div class="overlay" id="overlay"></div>
     </div>
 
-    <script src="script.js?v=20260716-2"></script>
+    <script defer src="script.js?v=20261006-1"></script>
     <noscript>Madopic 是由 XIAOLIN AI LAB 出品的 Markdown to picture 在线工具，可将 Markdown 内容制作成图片海报、社交媒体长图、知识卡片、技术文档图和公式图表海报。</noscript>
 </body>
 

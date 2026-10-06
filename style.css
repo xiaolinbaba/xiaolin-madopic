@@ -63,6 +63,7 @@ body {
 
 /* 顶部工具栏 - 极简设计 */
 .toolbar {
+    position: relative;
     background: var(--background-primary);
     border-bottom: 1px solid var(--border-primary);
     padding: 10px 20px;
@@ -904,23 +905,6 @@ select {
     }
 }
 
-/* 缩放控制 */
-.preview-content.zoom-75 {
-    transform: scale(0.75);
-}
-
-.preview-content.zoom-50 {
-    transform: scale(0.5);
-}
-
-.preview-content.zoom-125 {
-    transform: scale(1.25);
-}
-
-.preview-content.zoom-150 {
-    transform: scale(1.5);
-}
-
 /* 滚动条样式 */
 ::-webkit-scrollbar {
     width: 8px;
@@ -1330,6 +1314,8 @@ select {
         box-shadow: var(--shadow-lg);
         border-top: 1px solid var(--border-color);
         z-index: 100;
+        max-height: calc(100dvh - 56px);
+        overflow-y: auto;
     }
 
     .toolbar-right.mobile-open {
@@ -1399,4 +1385,10 @@ select {
     .tool-separator {
         display: none;
     }
+}
+
+/* 键盘操作时标出当前焦点，不影响鼠标操作时的外观。 */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 3px;
 }
