@@ -42,6 +42,7 @@ function createElement(overrides = {}) {
     removeAttribute(name) { attributes.delete(name); },
     querySelector() { return null; },
     querySelectorAll() { return []; },
+    get offsetWidth() { return Number.parseFloat(this.style.width) || 640; },
     getBoundingClientRect() {
       const width = Number.parseFloat(this.style.width) || 640;
       const height = Number.parseFloat(this.style.height) || 600;
@@ -237,6 +238,24 @@ assert.equal(
   '1734px',
   'PYQ height must be recalculated after width changes',
 );
+
+run(`markdownPoster.getBoundingClientRect = () => { throw new Error('Visual zoom must not size the poster'); };`);
+for (const zoom of [25, 50, 75, 100, 125, 150, 175, 200]) {
+  run(`currentZoom = ${zoom}; applyZoom();`);
+  assert.equal(run('previewContent.style.transform'), zoom === 100 ? '' : `scale(${zoom / 100})`);
+  assert.equal(run('zoomLevel.textContent'), `${zoom}%`);
+  for (const [mode, ratio] of [['xhs', 4 / 3], ['pyq', 2796 / 1290]]) {
+    for (const width of [480, 640, 800]) {
+      run(`currentMode = '${mode}'; applyWidth(${width});`);
+      assert.equal(run('markdownPoster.style.height'), `${Math.round(width * ratio)}px`, 'zoom must not change fixed poster ratios');
+    }
+  }
+}
+run('currentZoom = 145; zoomIn();');
+assert.equal(run('currentZoom'), 150, 'button zoom after a pinch must respect its upper limit');
+run('currentZoom = 60; zoomOut();');
+assert.equal(run('currentZoom'), 50, 'button zoom after a pinch must respect its lower limit');
+run("currentZoom = 100; applyZoom(); currentMode = 'free'; applyWidth(640);");
 
 for (const url of ['javascript:alert(1)', 'java\nscript:alert(1)', 'vbscript:msgbox(1)', 'data:text/html,bad']) {
   assert.equal(run(`isSafeUrl(${JSON.stringify(url)})`), false, `${url} must not be a clickable URL`);

@@ -1080,8 +1080,7 @@ function applyPreviewModeFrame() {
     markdownPoster.dataset.mode = currentMode;
     if (currentMode === 'xhs') {
         // 3:4（宽:高） => 高度 = 宽度 / 3 * 4。由于 width 是含 padding 的可视宽度，这里与导出一致
-        const rect = markdownPoster.getBoundingClientRect();
-        const targetHeight = Math.round((rect.width / 3) * 4);
+        const targetHeight = Math.round((markdownPoster.offsetWidth / 3) * 4);
         markdownPoster.style.height = `${targetHeight}px`;
         markdownPoster.style.minHeight = `${targetHeight}px`;
         markdownPoster.style.overflow = 'hidden'; // 超出裁掉
@@ -1096,8 +1095,7 @@ function applyPreviewModeFrame() {
     } else if (currentMode === 'pyq') {
         // 朋友圈固定比例：1290x2796 ≈ 宽:高 = 1290:2796。
         // 在保持当前外层宽度不变的前提下，按该比例计算高度。
-        const rect = markdownPoster.getBoundingClientRect();
-        const targetHeight = Math.round(rect.width * (2796 / 1290));
+        const targetHeight = Math.round(markdownPoster.offsetWidth * (2796 / 1290));
         markdownPoster.style.height = `${targetHeight}px`;
         markdownPoster.style.minHeight = `${targetHeight}px`;
         markdownPoster.style.overflow = 'hidden';
@@ -1379,23 +1377,21 @@ function showEmptyPreview() {
 // 缩放控制
 function zoomIn() {
     if (currentZoom < 150) {
-        currentZoom += 25;
+        currentZoom = Math.min(150, currentZoom + 25);
         applyZoom();
     }
 }
 
 function zoomOut() {
     if (currentZoom > 50) {
-        currentZoom -= 25;
+        currentZoom = Math.max(50, currentZoom - 25);
         applyZoom();
     }
 }
 
 function applyZoom() {
-    previewContent.className = 'preview-content';
-    if (currentZoom !== 100) {
-        previewContent.classList.add(`zoom-${currentZoom}`);
-    }
+    // 按钮和双指操作共享显示缩放，海报布局尺寸保持不变。
+    previewContent.style.transform = currentZoom === 100 ? '' : `scale(${currentZoom / 100})`;
     updateZoomDisplay();
 }
 
@@ -1622,7 +1618,7 @@ async function createExactExportNode() {
         top: '-9999px',
         left: '-9999px',
         margin: '0',
-        width: `${markdownPoster.getBoundingClientRect().width}px`,
+        width: `${markdownPoster.offsetWidth}px`,
         padding: mpComputed.padding,
         boxSizing: 'border-box',
         background: markdownPoster.style.background || mpComputed.background,
@@ -1633,7 +1629,7 @@ async function createExactExportNode() {
     if (inner) {
         const pcComputed = getComputedStyle(posterContent);
         inner.style.animation = 'none';
-        inner.style.width = `${posterContent.getBoundingClientRect().width}px`;
+        inner.style.width = `${posterContent.offsetWidth}px`;
         inner.style.padding = pcComputed.padding;
         inner.style.boxSizing = 'border-box';
         inner.style.backdropFilter = pcComputed.backdropFilter || 'none';
@@ -1641,8 +1637,7 @@ async function createExactExportNode() {
     }
     // 固定高度模式：小红书 3:4。导出时必须与预览一致，且裁掉超出部分
     if (currentMode === 'xhs') {
-        const rect = markdownPoster.getBoundingClientRect();
-        const target = Math.round((rect.width / 3) * 4);
+        const target = Math.round((markdownPoster.offsetWidth / 3) * 4);
         clone.style.height = `${target}px`;
         clone.style.minHeight = `${target}px`;
         clone.style.overflow = 'hidden';
@@ -1658,8 +1653,7 @@ async function createExactExportNode() {
             inner.style.overflow = 'hidden';
         }
     } else if (currentMode === 'pyq') {
-        const rect = markdownPoster.getBoundingClientRect();
-        const target = Math.round(rect.width * (2796 / 1290));
+        const target = Math.round(markdownPoster.offsetWidth * (2796 / 1290));
         clone.style.height = `${target}px`;
         clone.style.minHeight = `${target}px`;
         clone.style.overflow = 'hidden';
@@ -3223,7 +3217,7 @@ function setupPinchZoom() {
     }, { passive: true });
 
     previewContainer.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 2) {
+        if (e.touches.length === 2 && initialDistance > 0) {
             const currentDistance = Math.hypot(
                 e.touches[0].clientX - e.touches[1].clientX,
                 e.touches[0].clientY - e.touches[1].clientY
@@ -3233,14 +3227,7 @@ function setupPinchZoom() {
             newZoom = Math.max(25, Math.min(200, newZoom));
             if (newZoom !== currentZoom) {
                 currentZoom = newZoom;
-                const previewContent = document.querySelector('.preview-content');
-                if (previewContent) {
-                    previewContent.style.transform = `scale(${currentZoom / 100})`;
-                }
-                const zoomLevel = document.querySelector('.zoom-level');
-                if (zoomLevel) {
-                    zoomLevel.textContent = `${currentZoom}%`;
-                }
+                applyZoom();
             }
         }
     }, { passive: true });

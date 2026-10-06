@@ -183,22 +183,23 @@ node --check script.js
 node --test tests/static-site.test.mjs tests/script-regression.test.mjs
 ```
 
-完整浏览器回归使用 ego-browser。先用任意本地 HTTP 服务在 4173 端口打开项目，再运行：
+完整浏览器回归使用 ego-browser。先用任意本地 HTTP 服务在 4173 端口打开项目，再运行（导入路径需替换为本机项目绝对路径）：
 
 ```sh
 ego-browser nodejs <<'EOF_BROWSER'
 const task = await taskSpace("Madopic regression");
 const page = task.page("p1");
 await page.goto("http://127.0.0.1:4173/");
-const { runBrowserRegression, runExportRegression } = await import(
-  "file://" + process.cwd() + "/tests/browser-regression.mjs"
+const { runBrowserRegression, runZoomRegression, runExportRegression } = await import(
+  "file:///Users/xiaolin/projects/xiaolin-madopic/tests/browser-regression.mjs"
 );
 await runBrowserRegression(page);
-await runExportRegression(page, "/private/tmp");
+await runZoomRegression(page);
+await runExportRegression(page, "/private/tmp", 150);
 await task.finish({ keep: [] });
 EOF_BROWSER
 ```
 
-浏览器验证包括恶意内容过滤、现有模板、图表资源释放、连续编辑、弹窗焦点、移动菜单、本地图片恢复以及 PNG/HTML/可编辑 PDF 下载。导出测试文件写入临时目录。
+浏览器验证包括恶意内容过滤、现有模板、图表资源释放、连续编辑、弹窗焦点、移动菜单、25–200% 预览缩放下的海报比例与导出布局、本地图片恢复，以及 150% 缩放下 PNG/HTML/可编辑 PDF 下载。导出测试文件写入临时目录。
 
 本轮问题与处理边界见 [2026-10-06 代码审核报告](docs/audits/2026-10-06-code-audit.md)。

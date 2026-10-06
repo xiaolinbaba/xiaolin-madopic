@@ -193,7 +193,71 @@ export async function runBrowserRegression(page) {
   console.log('Browser regression passed: sanitization, templates, render queue, chart lifecycle, latest export, dialogs, keyboard presets, ratios, and mobile menu.');
 }
 
-export async function runExportRegression(page, outputDirectory) {
+export async function runZoomRegression(page) {
+  await page.cdp('Emulation.setDeviceMetricsOverride', {width: 1600, height: 900, deviceScaleFactor: 1, mobile: false});
+  await page.evaluate(async () => {
+    markdownInput.value = '# 缩放回归\n\n这段文字用于检查缩放前后海报布局、换行和导出尺寸是否保持一致。\n\n'.repeat(8);
+    await updatePreview();
+  });
+  const pinch = await page.evaluate(() => {
+    const target = document.getElementById('previewContainer');
+    const dispatch = (type, distance) => target.dispatchEvent(new TouchEvent(type, {touches: [
+      new Touch({identifier: 0, target, clientX: 0, clientY: 0}),
+      new Touch({identifier: 1, target, clientX: distance, clientY: 0}),
+    ]}));
+    currentZoom = 100;
+    applyZoom();
+    dispatch('touchstart', 0);
+    dispatch('touchmove', 145);
+    const degenerate = currentZoom;
+    dispatch('touchstart', 100);
+    dispatch('touchmove', 145);
+    return {degenerate, zoom: currentZoom, transform: previewContent.style.transform};
+  });
+  assert.equal(pinch.degenerate, 100, 'overlapping fingers must not divide by zero');
+  assert.equal(pinch.zoom, 145);
+  assert.equal(pinch.transform, 'scale(1.45)', 'pinch must use the same visible transform as buttons');
+  for (const zoom of [25, 50, 75, 100, 125, 150, 175, 200]) {
+    await page.evaluate(zoom => { currentZoom = zoom; applyZoom(); }, zoom);
+    await page.waitForFunction(zoom => Math.abs(markdownPoster.getBoundingClientRect().width - markdownPoster.offsetWidth * zoom / 100) < 0.1, zoom);
+    for (const width of [480, 640, 800]) {
+      for (const mode of ['free', 'xhs', 'pyq']) {
+        const dimensions = await page.evaluate(async ({width, mode}) => {
+          applyWidth(width);
+          setMode(mode);
+          const clone = await createExactExportNode();
+          try {
+            const inner = clone.querySelector('.poster-content');
+            return {
+              width: markdownPoster.offsetWidth,
+              height: markdownPoster.offsetHeight,
+              cloneWidth: clone.offsetWidth,
+              cloneHeight: clone.offsetHeight,
+              innerWidth: posterContent.offsetWidth,
+              cloneInnerWidth: inner.offsetWidth,
+              innerHeight: posterContent.offsetHeight,
+              cloneInnerHeight: inner.offsetHeight,
+            };
+          } finally { removeExportNode(clone); }
+        }, {width, mode});
+        assert.equal(dimensions.width, width);
+        assert.equal(dimensions.cloneWidth, width, `${zoom}% zoom must preserve export width`);
+        assert.equal(dimensions.cloneInnerWidth, dimensions.innerWidth, 'export must preserve text wrapping width');
+        assert.equal(dimensions.cloneInnerHeight, dimensions.innerHeight, 'export must preserve content layout');
+        assert.equal(dimensions.cloneHeight, dimensions.height);
+        if (mode !== 'free') assert.equal(dimensions.height, Math.round(width * (mode === 'xhs' ? 4 / 3 : 2796 / 1290)));
+      }
+    }
+  }
+  await page.evaluate(() => { currentZoom = 100; applyZoom(); setMode('free'); applyWidth(640); });
+  await page.click('#zoomOut');
+  assert.equal(await page.evaluate(() => previewContent.style.transform), 'scale(0.75)', 'zoom buttons must change the actual transform');
+  await page.click('#zoomIn');
+  assert.equal(await page.evaluate(() => previewContent.style.transform), '', '100% must clear the pinch or button transform');
+  console.log('Zoom regression passed: 25–200% display zoom, three widths and modes, export geometry and button controls.');
+}
+
+export async function runExportRegression(page, outputDirectory, zoom = 100) {
   const { readFile } = await import('node:fs/promises');
   await page.cdp('Emulation.setDeviceMetricsOverride', {width: 1280, height: 900, deviceScaleFactor: 1, mobile: false});
   await page.evaluate(async () => {
@@ -215,6 +279,7 @@ export async function runExportRegression(page, outputDirectory) {
   await page.reload();
   await page.waitForFunction(() => document.querySelector('#posterContent img')?.naturalWidth === 32);
   assert.equal(await page.evaluate(() => imageDataStore.size), 1, 'startup must load only the current draft images');
+  await page.evaluate(zoom => { currentZoom = zoom; applyZoom(); }, zoom);
 
   const artifacts = [];
   for (const [extension, button] of [['png', '#exportPngBtn'], ['html', '#exportHtmlBtn'], ['pdf', '#exportPdfBtn']]) {
