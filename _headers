@@ -1,0 +1,4 @@
+# Cloudflare Pages and Workers Static Assets: preserve same-origin embedding.
+/*
+  Content-Security-Policy: frame-ancestors 'self';
+  X-Frame-Options: SAMEORIGIN

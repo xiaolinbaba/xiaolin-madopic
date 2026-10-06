@@ -8,6 +8,12 @@ const read = (file) => readFileSync(resolve(root, file), 'utf8');
 const index = read('index.html');
 const script = read('script.js');
 const style = read('style.css');
+const headers = read('_headers');
+
+assert.match(headers, /^\/\*\s*\n(?:[ \t]+[^\n]+\n)*[ \t]+Content-Security-Policy:\s*frame-ancestors 'self';\s*$/m, 'all static pages must restrict framing to the same origin');
+assert.match(headers, /^[ \t]+X-Frame-Options:\s*SAMEORIGIN\s*$/m, 'older browsers must also reject cross-origin framing');
+assert.ok(!index.match(/<meta[^>]+http-equiv="Content-Security-Policy"[^>]+frame-ancestors/), 'unsupported meta framing policy must live in HTTP response headers');
+assert.ok(headers.split('\n').every(line => line.length <= 2000), 'Cloudflare header rules must fit the platform line limit');
 
 for (const dependency of ['dompurify@3.4.16', 'katex@0.18.2', 'mermaid@10.9.8', 'echarts@6.1.0', 'prismjs@1.30.0']) {
   assert.ok(index.includes(dependency), `${dependency} must use the audited security version`);

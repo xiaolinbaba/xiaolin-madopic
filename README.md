@@ -139,6 +139,14 @@ Madopic 是一个功能丰富的 Markdown 可视化工具，集成了数学公�
 1. 克隆项目到本地
 2. 使用任意HTTP服务器启动
 
+## Cloudflare 部署
+
+将根目录的 `_headers` 与 `index.html` 一起放入现有部署的静态资源输出目录。Cloudflare Pages 和 Workers Static Assets 均会读取它，为网站添加 `Content-Security-Policy: frame-ancestors 'self'` 与 `X-Frame-Options: SAMEORIGIN`，阻止第三方网站嵌入，同时保留同源嵌入。
+
+页面中的 meta CSP 继续限制脚本、样式和网络来源；防嵌入策略由 HTTP 响应头执行。若未来改用 Pages Functions 或 Worker 代码生成页面，需要在对应 Response 中设置同样的响应头。普通本地 HTTP 服务不会自动读取 `_headers`。
+
+官方配置说明：[Pages 响应头](https://developers.cloudflare.com/pages/configuration/headers/)、[Workers 静态资源响应头](https://developers.cloudflare.com/workers/static-assets/headers/)。
+
 ## 更新日志
 
 ### 20250906

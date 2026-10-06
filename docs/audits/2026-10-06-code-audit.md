@@ -28,6 +28,7 @@
 | 空草稿刷新后被默认内容覆盖、异常设置导致巨大尺寸 | 恢复空字符串草稿；将恢复的数值限制在原有控件范围 | 原生 Node 回归 |
 | 比例与导出宽度计入父容器的显示缩放 | 使用 offsetWidth 读取海报与内卡片的布局尺寸，保留文字换行及固定比例 | 25–200% 缩放、480/640/800px 宽度、全部三种模式回归 |
 | 上轮清理误删按钮依赖的缩放 class 样式；双指操作与按钮使用不同入口 | 统一使用 applyZoom 设置显示变换；回到 100% 清除变换；双指操作后按钮限制在原范围 | 实际按钮与触摸事件回归，补充按钮边界与双指零距离检查 |
+| meta CSP 中的 frame-ancestors 不能阻止第三方嵌入 | 用户确认 Cloudflare 部署后，新增根目录 _headers，设置 frame-ancestors 'self' 与 X-Frame-Options: SAMEORIGIN；移除 meta 中无效的防嵌入指令 | 静态规则检查通过；部署后需核对线上响应头 |
 
 ## 已经用户同意的无障碍与维护整理
 
@@ -50,9 +51,10 @@
 
 ## 尚需后续处理
 
-1. **托管平台的防嵌入响应头。** 本轮读取线上公开响应，已有 `X-Content-Type-Options: nosniff`，未提供 CSP 响应头或 X-Frame-Options。HTML meta 中的 frame-ancestors 不受浏览器支持，不能阻止第三方嵌入。需要在托管平台配置 HTTP `Content-Security-Policy: frame-ancestors 'self'` 或 `X-Frame-Options: SAMEORIGIN`。仓库没有托管平台配置，不能仅凭 Cloudflare 响应头确定部署产品，因此未推测并写入平台专属配置。
-2. **超大/恶意输入的计算隔离。** 已修补当前依赖公告中的卡死问题，并减少重复任务；没有引入 Worker 隔离或统一内容长度限制。极大的 Markdown、数学公式、复杂图表或自定义数据转换正则仍可能让浏览器繁忙。限制输入或隔离计算会影响产品使用范围，宜作为后续独立设计。
-3. **历史图片生命周期。** 本轮减少内存加载，不自动删除历史数据库记录，避免影响图片找回。若需长期存储治理，应增加清理/恢复机制并明确保留策略。
+1. **超大/恶意输入的计算隔离。** 已修补当前依赖公告中的卡死问题，并减少重复任务；没有引入 Worker 隔离或统一内容长度限制。极大的 Markdown、数学公式、复杂图表或自定义数据转换正则仍可能让浏览器繁忙。限制输入或隔离计算会影响产品使用范围，宜作为后续独立设计。
+2. **历史图片生命周期。** 本轮减少内存加载，不自动删除历史数据库记录，避免影响图片找回。若需长期存储治理，应增加清理/恢复机制并明确保留策略。
+
+Cloudflare 防嵌入配置必须随静态资源部署；Pages 与 Workers Static Assets 都支持 `_headers`。若页面改由 Functions 或 Worker 代码生成，须在其 Response 中显式设置。提交配置不等于线上已经生效，以部署后的 HTTP 响应头为准。
 
 审核和验证不能证明所有输入及所有浏览器均不存在漏洞。跨域图片仍依赖原站 CORS 和现有公共代理服务，离线导出的远程图片和公式字体也仍需要网络。
 
@@ -64,3 +66,4 @@
 - [ECharts 6 升级兼容指南](https://echarts.apache.org/handbook/en/basics/release-note/v6-upgrade-guide/)：使用官方 v5 主题保留旧配色及默认布局。
 - [Prism DOM clobbering](https://github.com/advisories/GHSA-x7hr-w5r2-h6wg)：修复版本 1.30.0。
 - [DOMPurify 官方项目与配置说明](https://github.com/cure53/DOMPurify)。
+- [Cloudflare Pages 响应头配置](https://developers.cloudflare.com/pages/configuration/headers/)、[Workers Static Assets 响应头配置](https://developers.cloudflare.com/workers/static-assets/headers/)。
