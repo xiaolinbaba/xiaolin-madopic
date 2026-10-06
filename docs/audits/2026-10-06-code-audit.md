@@ -28,7 +28,7 @@
 | 空草稿刷新后被默认内容覆盖、异常设置导致巨大尺寸 | 恢复空字符串草稿；将恢复的数值限制在原有控件范围 | 原生 Node 回归 |
 | 比例与导出宽度计入父容器的显示缩放 | 使用 offsetWidth 读取海报与内卡片的布局尺寸，保留文字换行及固定比例 | 25–200% 缩放、480/640/800px 宽度、全部三种模式回归 |
 | 上轮清理误删按钮依赖的缩放 class 样式；双指操作与按钮使用不同入口 | 统一使用 applyZoom 设置显示变换；回到 100% 清除变换；双指操作后按钮限制在原范围 | 实际按钮与触摸事件回归，补充按钮边界与双指零距离检查 |
-| meta CSP 中的 frame-ancestors 不能阻止第三方嵌入 | 用户确认 Cloudflare 部署后，新增根目录 _headers，设置 frame-ancestors 'self' 与 X-Frame-Options: SAMEORIGIN；移除 meta 中无效的防嵌入指令 | 静态规则检查通过；部署后需核对线上响应头 |
+| meta CSP 中的 frame-ancestors 不能阻止第三方嵌入 | 用户确认 Cloudflare 部署后，新增根目录 _headers，设置 frame-ancestors 'self' 与 X-Frame-Options: SAMEORIGIN；移除 meta 中无效的防嵌入指令 | 静态规则检查通过；线上首页、index.html 入口及静态资源确认返回安全响应头 |
 
 ## 已经用户同意的无障碍与维护整理
 
@@ -47,6 +47,7 @@
 - 本地图片经 IndexedDB 保存、页面刷新后恢复，PNG、HTML、PDF 真实下载通过。
 - PNG 宽度为 1280px（640px 海报 × 2）；HTML 可独立打开，公式字体加载成功且图表为图片；PDF 保留中文字对象和 Unicode 映射。
 - 后续缩放修复验证：25–200% × 480/640/800px × 自由/小红书/朋友圈，共 72 组布局与导出节点检查通过；按钮和触摸事件检查通过；150% 下实际下载 PNG、HTML、PDF，PNG 仍为 1280px，PDF 仍含嵌入字体和 Unicode 映射。
+- Cloudflare 配置提交 fd974bc 发布后，线上 `/`、`/index.html`（重定向至 `/`）及带新查询参数的 `script.js` 均确认返回 `Content-Security-Policy: frame-ancestors 'self';` 和 `X-Frame-Options: SAMEORIGIN`；首页无效的 meta 防嵌入指令已移除。初次请求处于发布切换期间，后续复查确认所有检查入口都已更新。
 - 没有新增运行时包管理、构建步骤或 Python 环境。
 
 ## 尚需后续处理
